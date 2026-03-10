@@ -1,0 +1,21 @@
+FROM ruby:3.3-slim
+
+RUN apt-get update -qq && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    libyaml-dev \
+    nodejs \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN gem install rails -v '~> 8.1' --no-document
+
+WORKDIR /app
+
+COPY entrypoint.sh /usr/bin/entrypoint.sh
+RUN chmod +x /usr/bin/entrypoint.sh
+
+ENTRYPOINT ["entrypoint.sh"]
+EXPOSE 3000
+CMD ["rails", "server", "-b", "0.0.0.0"]
