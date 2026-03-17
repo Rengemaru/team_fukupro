@@ -12,6 +12,15 @@ const IDLE_KEYS = ['gale_idle','gale_idle1','gale_idle2','gale_idle3'] as const;
 //   wind    → Ice Swirl Attack A (gale_atk_wind.png)
 type WeatherType = 'thunder' | 'fire' | 'water' | 'wind' | 'hail';
 
+// API の天候 → GameScene の WeatherType マッピング
+const API_WEATHER_MAP: Record<string, WeatherType> = {
+  thunderstorm: 'thunder',
+  rain:         'water',
+  wind:         'wind',
+  sunny:        'fire',
+  hail:         'hail',
+};
+
 // 雹の3フレームキー
 const HAIL_KEYS = ['gale_atk_hyou', 'gale_atk_hyou1', 'gale_atk_hyou2'] as const;
 
@@ -54,6 +63,10 @@ export class GameScene extends Phaser.Scene {
 
   constructor() { super({ key: 'GameScene' }); }
 
+  shutdown() {
+    this.game.events.off('weatherChanged', undefined, this);
+  }
+
   // ─── アセット読み込み ──────────────────────────────────────
   preload() {
     // TitleScene でロード済みの場合はスキップ
@@ -87,6 +100,15 @@ export class GameScene extends Phaser.Scene {
     this.createBackButton(W);
 
     this.cameras.main.fadeIn(600);
+
+    // Zustand の天候変化を受け取り、空・エフェクトに反映する
+    this.game.events.on('weatherChanged', (apiWeather: string) => {
+      const type = API_WEATHER_MAP[apiWeather];
+      if (type) {
+        this.updateSkyForWeather(type);
+        this.spawnWeatherFx(type);
+      }
+    }, this);
   }
 
   // ─── 背景（2.5D奥行き感） ──────────────────────────────────

@@ -1,9 +1,20 @@
 import { useEffect, useRef } from 'react';
 import type Phaser from 'phaser';
+import { useWeatherStore } from '../store/weatherStore';
 
 export function PhaserGame() {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
+
+  // Zustand の weather を Phaser のイベントバスに流す
+  useEffect(() => {
+    const unsubscribe = useWeatherStore.subscribe((state) => {
+      if (gameRef.current && state.weather) {
+        gameRef.current.events.emit('weatherChanged', state.weather);
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     if (gameRef.current || !containerRef.current) return;
