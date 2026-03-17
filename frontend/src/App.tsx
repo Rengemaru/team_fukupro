@@ -28,9 +28,14 @@ function App() {
         audioContext,
         source: sourceNode,
         bufferSize: 512,
-        featureExtractors: ['rms', 'spectralCentroid'],
+        featureExtractors: ['rms', 'zcr', 'spectralCentroid', 'spectralRolloff'],
         callback: (features: Partial<MeydaFeaturesObject>) => {
-          console.log('rms:', features.rms, 'spectralCentroid:', features.spectralCentroid)
+          console.log(
+            'rms:', features.rms,
+            'zcr:', features.zcr,
+            'spectralCentroid:', features.spectralCentroid,
+            'spectralRolloff:', features.spectralRolloff,
+          )
         },
       })
       analyzer.start()
@@ -76,7 +81,7 @@ function App() {
         )}
         {micStatus === 'denied' && (
           <div className="error-box">
-            <p>マイクへのアクセスが拒否されました。</p>
+            <p>マイクへのアクセスが拒否されました</p>
             <p>ブラウザのアドレスバー横にある鍵アイコンをクリックし、マイクを「許可」に変更してからページを再読み込みしてください。</p>
             <button onClick={() => setMicStatus('idle')}>再試行</button>
           </div>
