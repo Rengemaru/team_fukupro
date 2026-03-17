@@ -104,7 +104,7 @@ function App() {
   return (
     <div style={{ width: "100vw", minHeight: "100vh", background: "#eef6ff", position: "relative" }}>
       <div style={{ position: "fixed", top: 12, left: 12, zIndex: 10 }}>
-        <WeatherIcon weather={weather} />
+        <WeatherIcon weather={(weather ?? "sunny") as WeatherType} />
       </div>
 
       <div style={{ position: "fixed", top: 16, right: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
