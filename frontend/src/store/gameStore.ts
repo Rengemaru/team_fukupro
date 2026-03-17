@@ -8,6 +8,10 @@ export interface MapNode {
   connections: number[]
   completed: boolean
   village_event?: string | null
+  // enemy ノード専用フィールド
+  enemy_id?: number | null
+  enemy_name?: string | null
+  current_hp?: number | null
 }
 
 type GameStore = {
