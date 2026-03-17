@@ -4,7 +4,24 @@ import type { MeydaAnalyzer } from 'meyda/dist/node/esm/meyda-wa'
 import type { MeydaFeaturesObject } from 'meyda/dist/node/esm/main'
 import './App.css'
 
+const FRAME_BUFFER_SIZE = 10
+
 type MicStatus = 'idle' | 'active' | 'denied' | 'error'
+
+type FeatureFrame = {
+  rms: number | null
+  zcr: number | null
+  spectralCentroid: number | null
+  spectralRolloff: number | null
+}
+
+async function sendFeatures(frames: FeatureFrame[]) {
+  await fetch('/api/audio-features', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ frames }),
+  })
+}
 
 function App() {
   const [micStatus, setMicStatus] = useState<MicStatus>('idle')
@@ -12,6 +29,7 @@ function App() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const meydaAnalyzerRef = useRef<MeydaAnalyzer | null>(null)
+  const frameBufferRef = useRef<FeatureFrame[]>([])
 
   const requestMic = async () => {
     try {
@@ -30,12 +48,18 @@ function App() {
         bufferSize: 512,
         featureExtractors: ['rms', 'zcr', 'spectralCentroid', 'spectralRolloff'],
         callback: (features: Partial<MeydaFeaturesObject>) => {
-          console.log(
-            'rms:', features.rms,
-            'zcr:', features.zcr,
-            'spectralCentroid:', features.spectralCentroid,
-            'spectralRolloff:', features.spectralRolloff,
-          )
+          const frame: FeatureFrame = {
+            rms: features.rms ?? null,
+            zcr: features.zcr ?? null,
+            spectralCentroid: features.spectralCentroid ?? null,
+            spectralRolloff: features.spectralRolloff ?? null,
+          }
+          frameBufferRef.current.push(frame)
+
+          if (frameBufferRef.current.length >= FRAME_BUFFER_SIZE) {
+            sendFeatures(frameBufferRef.current)
+            frameBufferRef.current = []
+          }
         },
       })
       analyzer.start()
