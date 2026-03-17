@@ -9,9 +9,12 @@ type HPHeartProps = {
 const HPHeart: React.FC<HPHeartProps> = ({ currentHP, maxHP, hearts = 5 }) => {
   const [pulse, setPulse] = useState(false)
   useEffect(() => {
-    setPulse(true)
-    const timer = setTimeout(() => setPulse(false), 120)
-    return () => clearTimeout(timer)
+    const timerOn = setTimeout(() => setPulse(true), 0)
+    const timerOff = setTimeout(() => setPulse(false), 120)
+    return () => {
+      clearTimeout(timerOn)
+      clearTimeout(timerOff)
+    }
   }, [currentHP])
 
   const effective = Math.max(0, Math.min(maxHP, currentHP))
