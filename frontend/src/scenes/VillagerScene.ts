@@ -23,7 +23,14 @@ const WEATHER_BTN: Record<WeatherChoice, {
     womanResult: '🌨 氷の結晶が魔物を貫いた！\n「冷たいけど…助かった！」' },
 };
 
-const WALK_KEYS_V = ['gale_walk','gale_walk1','gale_walk2','gale_walk3'] as const;
+// タイトル画面と同じ全6フレーム
+const ALL_WALK_KEYS = [
+  'gale_walk','gale_walk1','gale_walk2','gale_walk3','gale_walk4','gale_walk5'
+] as const;
+const WALK_FILE: Record<string, string> = {
+  gale_walk4: 'gale_walk4.jpg.png',
+  gale_walk5: 'gale_walk5.png',
+};
 
 export class VillagerScene extends Phaser.Scene {
   constructor() { super({ key: 'VillagerScene' }); }
@@ -31,7 +38,10 @@ export class VillagerScene extends Phaser.Scene {
   preload() {
     if (!this.textures.exists('man_murabito'))   this.load.image('man_murabito',   'man_murabito.jpg');
     if (!this.textures.exists('woman_murabito')) this.load.image('woman_murabito', 'woman_murabito.jpg');
-    WALK_KEYS_V.forEach(key => { if (!this.textures.exists(key)) this.load.image(key, `${key}.jpg`); });
+    ALL_WALK_KEYS.forEach(key => {
+      if (!this.textures.exists(key))
+        this.load.image(key, WALK_FILE[key] ?? `${key}.jpg`);
+    });
     this.load.on('loaderror', (f: Phaser.Loader.File) => console.warn('[VillagerScene] load failed:', f.key));
   }
 
@@ -45,14 +55,14 @@ export class VillagerScene extends Phaser.Scene {
     canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext('2d')!;
     ctx.drawImage(src, 0, 0);
-    const d = ctx.getImageData(0, 0, w, h).data;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
     for (let i = 0; i < d.length; i += 4) {
       const mx = Math.max(d[i],d[i+1],d[i+2]), mn = Math.min(d[i],d[i+1],d[i+2]);
       const sat = mx === 0 ? 0 : (mx-mn)/mx;
       if (mx < 60) d[i+3] = 0;
       else if (mx < 100 && sat < 0.55) d[i+3] = Math.round(((mx-60)/40)*255);
     }
-    const imgData = new ImageData(d, w, h);
     ctx.putImageData(imgData, 0, 0);
     this.textures.remove(key);
     this.textures.addCanvas(key, canvas);
@@ -63,15 +73,15 @@ export class VillagerScene extends Phaser.Scene {
     const nodeId       = data?.nodeId       ?? 0;
     const villagerType = data?.villagerType ?? 'man';
     const villagerKey  = villagerType === 'man' ? 'man_murabito' : 'woman_murabito';
-    const groundY      = H * 0.70;
+    const groundY      = H * 0.68;
 
     this.removeBlackBg('man_murabito');
     this.removeBlackBg('woman_murabito');
 
-    // ── 村の背景 ─────────────────────────────────────────
+    // 村の背景
     this.buildVillageBackground(W, H, groundY);
 
-    // ── 村人を配置（右寄り） ──────────────────────────────
+    // 村人を配置
     const villagerX = W * 0.64;
     const hasVillager = this.textures.exists(villagerKey) && this.textures.get(villagerKey).key !== '__MISSING';
     if (hasVillager) {
@@ -80,25 +90,22 @@ export class VillagerScene extends Phaser.Scene {
       this.makeFallbackVillager(villagerX, groundY, villagerType);
     }
 
-    // ── UIコンテナ（最初は非表示） ────────────────────────
+    // タイトルへ戻るボタン（常時表示）
+    this.addBackButton(W);
+
+    // イベントUI（歩き入場後に表示）
     const uiContainer = this.add.container(0, 0).setVisible(false);
     this.buildEventUI(W, H, nodeId, villagerType, uiContainer);
 
-    // ── タイトルへ戻るボタン ─────────────────────────────
-    this.addBackButton(W);
-
-    // ── 主人公が歩いてきてイベント発生 ───────────────────
     this.cameras.main.fadeIn(500);
     this.time.delayedCall(300, () => {
-      this.animateHeroEntry(W, groundY, () => {
-        uiContainer.setVisible(true);
-      });
+      this.animateHeroEntry(W, groundY, () => uiContainer.setVisible(true));
     });
   }
 
-  // ─── 村の背景 ─────────────────────────────────────────────
+  // ─── 村の背景 ─────────────────────────────────────────────────
   private buildVillageBackground(W: number, H: number, groundY: number) {
-    // 空（夕暮れ〜夜明け）
+    // 夕暮れ空
     const sky = this.add.graphics();
     sky.fillGradientStyle(0x1a2a55, 0x1a2a55, 0x6a4a22, 0x6a4a22, 1);
     sky.fillRect(0, 0, W, groundY);
@@ -114,14 +121,13 @@ export class VillagerScene extends Phaser.Scene {
     // 遠景山
     const mtn = this.add.graphics();
     mtn.fillStyle(0x1a1a3a, 0.65);
-    mtn.beginPath();
-    mtn.moveTo(0, groundY);
+    mtn.beginPath(); mtn.moveTo(0, groundY);
     [0,120,200,300,380,480,560,660,740,800].forEach((x,i) =>
       mtn.lineTo(x, groundY - [0,55,30,80,40,70,25,60,35,0][i]));
     mtn.lineTo(W, groundY); mtn.closePath(); mtn.fillPath();
 
-    // 村の建物（石造りの家々）
-    const buildings: {x:number,w:number,h:number,rh:number,wc:number,rc:number}[] = [
+    // 村の建物
+    const buildings = [
       {x:30,  w:75, h:80, rh:35, wc:0x3a2a18, rc:0x5a2c10},
       {x:120, w:55, h:62, rh:28, wc:0x2e2010, rc:0x4a2008},
       {x:185, w:90, h:90, rh:40, wc:0x3d2a1a, rc:0x622010},
@@ -140,91 +146,98 @@ export class VillagerScene extends Phaser.Scene {
       bg2.fillStyle(0x120600); bg2.fillRect(b.x+b.w/2-8, groundY-b.h*0.3, 16, b.h*0.3);
     });
 
-    // 石畳の道（透視）
+    // 石畳の道
     const path = this.add.graphics();
     path.fillStyle(0x5a4a38, 0.85);
     path.beginPath();
     path.moveTo(W*0.35, groundY); path.lineTo(W*0.65, groundY);
-    path.lineTo(W*0.75, groundY+H*0.30); path.lineTo(W*0.25, groundY+H*0.30);
+    path.lineTo(W*0.75, groundY + H*0.30); path.lineTo(W*0.25, groundY + H*0.30);
     path.closePath(); path.fillPath();
-    // 石畳の線
     path.lineStyle(1, 0x3a2a20, 0.45);
     for (let row = 1; row <= 4; row++) {
-      const t = row / 4;
-      const lx = W*0.35 + (W*0.25-W*0.35) * t;
-      const rx = W*0.65 + (W*0.75-W*0.65) * t;
-      const y  = groundY + H*0.30 * t;
-      path.beginPath(); path.moveTo(lx, y); path.lineTo(rx, y); path.strokePath();
+      const t = row/4;
+      const lx = W*0.35 + (W*0.25-W*0.35)*t, rx = W*0.65 + (W*0.75-W*0.65)*t, py = groundY + H*0.30*t;
+      path.beginPath(); path.moveTo(lx, py); path.lineTo(rx, py); path.strokePath();
     }
 
-    // 両サイドの木
+    // 街路樹
     const trees = this.add.graphics();
     [[W*0.32, groundY],[W*0.68, groundY],[W*0.28, groundY-10],[W*0.72, groundY-10]].forEach(([tx, ty]) => {
-      trees.fillStyle(0x2a1400,0.9); trees.fillRect(tx-5, ty-40, 10, 40);
-      trees.fillStyle(0x0e2e0a,0.88); trees.fillTriangle(tx, ty-80, tx-25, ty-28, tx+25, ty-28);
-      trees.fillStyle(0x112e10,0.75); trees.fillTriangle(tx, ty-95, tx-18, ty-50, tx+18, ty-50);
+      trees.fillStyle(0x2a1400, 0.9); trees.fillRect(tx-5, ty-40, 10, 40);
+      trees.fillStyle(0x0e2e0a, 0.88); trees.fillTriangle(tx, ty-80, tx-25, ty-28, tx+25, ty-28);
+      trees.fillStyle(0x112e10, 0.75); trees.fillTriangle(tx, ty-95, tx-18, ty-50, tx+18, ty-50);
     });
 
     // 地面
     const ground = this.add.graphics();
-    ground.fillStyle(0x1a2808); ground.fillRect(0, groundY, W, H-groundY);
+    ground.fillStyle(0x1a2808); ground.fillRect(0, groundY, W, H - groundY);
     ground.fillStyle(0x223a0a, 0.7);
-    for (let gx = 10; gx < W; gx += 18) {
+    for (let gx = 10; gx < W; gx += 18)
       ground.fillTriangle(gx, groundY, gx-4, groundY+12, gx+4, groundY+12);
-    }
     this.add.rectangle(0, groundY, W, 6, 0x2a5a12).setOrigin(0, 0);
   }
 
-  // ─── イベントUI（天候選択） ──────────────────────────────────
-  private buildEventUI(W: number, H: number, nodeId: number, villagerType: 'man' | 'woman', container: Phaser.GameObjects.Container) {
+  // ─── イベントUI（下部ボタン＋吹き出し） ─────────────────────
+  private buildEventUI(
+    W: number, H: number, nodeId: number,
+    villagerType: 'man' | 'woman',
+    container: Phaser.GameObjects.Container
+  ) {
     const add = (go: Phaser.GameObjects.GameObject) => { container.add(go); return go; };
 
-    // タイトル帯
-    add(this.add.text(W/2, 28, '村人が助けを求めている！', {
-      fontSize:'24px', fontFamily:'"Yu Gothic","YuGothic",serif',
+    // タイトルテキスト
+    add(this.add.text(W/2, 26, '村人が助けを求めている！', {
+      fontSize:'22px', fontFamily:'"Yu Gothic","YuGothic",serif',
       color:'#ffcc66', stroke:'#1a0800', strokeThickness:4,
     }).setOrigin(0.5));
 
     // セリフ吹き出し
-    const speechBg = this.add.graphics();
-    speechBg.fillStyle(0x0a1a0a, 0.88);
-    speechBg.fillRoundedRect(W*0.40, 55, W*0.56, 105, 12);
-    speechBg.lineStyle(2, 0x3a7a44, 0.85);
-    speechBg.strokeRoundedRect(W*0.40, 55, W*0.56, 105, 12);
-    // 吹き出しの三角（左向き）
-    speechBg.fillStyle(0x0a1a0a, 0.88);
-    speechBg.fillTriangle(W*0.40, 100, W*0.40-18, 107, W*0.40, 114);
-    add(speechBg);
-
+    const bubbleBg = this.add.graphics();
+    bubbleBg.fillStyle(0x0a1a0a, 0.88);
+    bubbleBg.fillRoundedRect(W*0.38, 52, W*0.58, 108, 12);
+    bubbleBg.lineStyle(2, 0x3a7a44, 0.85);
+    bubbleBg.strokeRoundedRect(W*0.38, 52, W*0.58, 108, 12);
+    bubbleBg.fillStyle(0x0a1a0a, 0.88);
+    bubbleBg.fillTriangle(W*0.38, 96, W*0.38-18, 104, W*0.38, 112);
+    add(bubbleBg);
     const speechStr = villagerType === 'man'
       ? '「た、助けてください！\n　魔物に追われています…\n　あなたの天候の力で\n　何とかしてください！」'
       : '「お願い！ここから\n　逃げ出す手助けを…\n　あなたの天候の力で\n　魔物を追い払って！」';
-    add(this.add.text(W*0.40+14, 65, speechStr, {
+    add(this.add.text(W*0.38+14, 62, speechStr, {
       fontSize:'13px', fontFamily:'"Yu Gothic","YuGothic",monospace',
       color:'#ddeedd', lineSpacing:4,
     }));
 
-    // 天候選択ラベル
-    add(this.add.text(W/2, 172, '▶ 天候を選んでください', {
+    // ── 下部HUDバー ───────────────────────────────────────
+    const hudY  = H * 0.77;
+    const hudBg = this.add.graphics();
+    hudBg.fillStyle(0x000011, 0.92); hudBg.fillRect(0, hudY, W, H - hudY);
+    hudBg.lineStyle(2, 0x224488, 1);  hudBg.strokeRect(0, hudY, W, H - hudY);
+    add(hudBg);
+
+    // "天候を選んでください" ラベル
+    add(this.add.text(W/2, hudY + 8, '▶  天候を選んでください', {
       fontSize:'14px', fontFamily:'"Yu Gothic","YuGothic",monospace', color:'#88ddbb',
-    }).setOrigin(0.5));
+    }).setOrigin(0.5, 0));
 
     // 結果テキスト（最初は非表示）
-    const resultBg = this.add.graphics().setVisible(false);
-    const resultText = this.add.text(W/2, H*0.42, '', {
+    const resultBg   = this.add.graphics().setVisible(false);
+    const resultText = this.add.text(W/2, H*0.60, '', {
       fontSize:'17px', fontFamily:'"Yu Gothic","YuGothic",serif',
       color:'#88ffaa', stroke:'#001a0a', strokeThickness:3, align:'center', lineSpacing:4,
     }).setOrigin(0.5).setVisible(false);
     add(resultBg); add(resultText);
 
-    // 天候ボタン5種
+    // 天候ボタン5種（下部HUD内）
     const types: WeatherChoice[] = ['thunder','fire','water','wind','hail'];
-    const gap=7, btnH=58;
-    const btnW = Math.floor((W - 24 - gap*(types.length-1)) / types.length);
+    const gap  = 8;
+    const btnH = H - hudY - 30;
+    const btnW = Math.floor((W - 20 - gap*(types.length-1)) / types.length);
+    const by   = hudY + 26;
 
     types.forEach((type, i) => {
       const cfg = WEATHER_BTN[type];
-      const bx  = 12 + i*(btnW+gap), by = 192;
+      const bx  = 10 + i*(btnW+gap);
 
       const frame = this.add.graphics();
       const draw = (hover: boolean) => {
@@ -236,11 +249,11 @@ export class VillagerScene extends Phaser.Scene {
       };
       draw(false);
       add(frame);
-      add(this.add.text(bx+btnW/2, by+14, cfg.emoji, {fontSize:'18px'}).setOrigin(0.5));
-      add(this.add.text(bx+btnW/2, by+40, cfg.label, {
-        fontSize:'16px', fontFamily:'"Yu Gothic","YuGothic",monospace',
+      add(this.add.text(bx+btnW/2, by+10, cfg.emoji, {fontSize:'18px'}).setOrigin(0.5, 0));
+      add(this.add.text(bx+btnW/2, by+btnH-16, cfg.label, {
+        fontSize:'18px', fontFamily:'"Yu Gothic","YuGothic",monospace',
         color:'#ffffff', stroke:'#000', strokeThickness:2,
-      }).setOrigin(0.5));
+      }).setOrigin(0.5, 1));
 
       const hit = this.add.rectangle(bx+btnW/2, by+btnH/2, btnW, btnH, 0x000000, 0)
         .setInteractive({ useHandCursor:true });
@@ -249,29 +262,23 @@ export class VillagerScene extends Phaser.Scene {
       hit.on('pointerover',  () => draw(true));
       hit.on('pointerout',   () => draw(false));
       hit.on('pointerdown',  () => {
-        // 全ボタン無効化
-        types.forEach((_,j) => {
-          container.getAt(container.length - types.length + j - 1);
-        });
         hit.disableInteractive();
-
         // 天候エフェクト
-        for (let j = 0; j < 16; j++) {
-          const px = W*0.42 + Phaser.Math.Between(-80, 80);
-          const py = H*0.42 + Phaser.Math.Between(-60, 60);
+        for (let j = 0; j < 14; j++) {
+          const px = W*0.50 + Phaser.Math.Between(-120, 120);
+          const py = H*0.45 + Phaser.Math.Between(-60, 60);
           const p  = this.add.circle(px, py, Phaser.Math.Between(3,7), cfg.btnGlow, 0.9);
-          this.tweens.add({ targets:p, y:py-Phaser.Math.Between(50,120), alpha:0,
-            duration:Phaser.Math.Between(600,1200), delay:j*55, onComplete:()=>p.destroy() });
+          this.tweens.add({ targets:p, y:py-Phaser.Math.Between(50,110), alpha:0,
+            duration:Phaser.Math.Between(600,1100), delay:j*55, onComplete:()=>p.destroy() });
         }
-
         // 結果表示
         const msg = villagerType === 'man' ? cfg.manResult : cfg.womanResult;
         resultBg.fillStyle(0x041210, 0.90);
-        resultBg.fillRoundedRect(W/2-260, H*0.36, 520, 72, 10);
+        resultBg.fillRoundedRect(W/2-250, H*0.55, 500, 72, 10);
         resultBg.lineStyle(2, 0x33aa66, 0.9);
-        resultBg.strokeRoundedRect(W/2-260, H*0.36, 520, 72, 10);
+        resultBg.strokeRoundedRect(W/2-250, H*0.55, 500, 72, 10);
         resultBg.setVisible(true);
-        resultText.setText(msg).setVisible(true);
+        resultText.setText(msg).setY(H*0.59).setVisible(true);
         this.tweens.add({ targets:resultText, alpha:0.4, duration:450, yoyo:true, repeat:1 });
 
         this.time.delayedCall(1700, () => {
@@ -283,45 +290,41 @@ export class VillagerScene extends Phaser.Scene {
           this.time.delayedCall(500, () => this.scene.start('MapScene'));
         });
       });
-
-      this.tweens.add({ targets:frame, alpha:0.72, duration:1000+i*110, yoyo:true, repeat:-1, ease:'Sine.easeInOut' });
+      this.tweens.add({ targets:frame, alpha:0.70, duration:1000+i*110, yoyo:true, repeat:-1, ease:'Sine.easeInOut' });
     });
   }
 
-  // ─── 主人公の歩き登場アニメ ─────────────────────────────────
+  // ─── 主人公の歩き入場（タイトルと同じ6フレーム） ────────────
   private animateHeroEntry(W: number, groundY: number, onArrive: () => void) {
-    const hasWalk = WALK_KEYS_V.some(k => this.textures.exists(k) && this.textures.get(k).key !== '__MISSING');
-    const heroKey = hasWalk ? WALK_KEYS_V[0] : null;
-    if (!heroKey) { onArrive(); return; }
+    const validKeys = ALL_WALK_KEYS.filter(
+      k => this.textures.exists(k) && this.textures.get(k).key !== '__MISSING'
+    );
+    if (validKeys.length === 0) { onArrive(); return; }
 
-    const hero = this.add.image(-80, groundY, heroKey).setOrigin(0.5, 1).setScale(1.2);
+    const hero = this.add.image(-90, groundY, validKeys[0]).setOrigin(0.5, 1).setScale(1.2);
     const fixedW = hero.displayWidth, fixedH = hero.displayHeight;
+    const shadow = this.add.ellipse(-90, groundY + 4, 50, 12, 0x000000, 0.32);
+
     let fi = 0;
     const walkTimer = this.time.addEvent({
-      delay: 120, repeat: -1,
+      delay: 125, repeat: -1,   // タイトルと同じ 125ms / 8fps
       callback: () => {
-        fi = (fi + 1) % WALK_KEYS_V.length;
-        hero.setTexture(WALK_KEYS_V[fi]);
+        fi = (fi + 1) % validKeys.length;
+        hero.setTexture(validKeys[fi]);
         hero.setDisplaySize(fixedW, fixedH);
       },
     });
 
-    // 足元の影
-    const shadow = this.add.ellipse(-80, groundY + 4, 50, 12, 0x000000, 0.32);
-
-    // 歩いて中央寄りまで移動
     this.tweens.add({
       targets: [hero, shadow],
       x: W * 0.30,
-      duration: 2000,
+      duration: 1800,
       ease: 'Linear',
       onComplete: () => {
         walkTimer.remove();
-        // アイドルに切り替え（walk0に戻す）
-        hero.setTexture(WALK_KEYS_V[0]);
+        hero.setTexture(validKeys[0]);
         hero.setDisplaySize(fixedW, fixedH);
-        // 少し待ってからイベント発生
-        this.time.delayedCall(300, onArrive);
+        this.time.delayedCall(250, onArrive);
       },
     });
   }

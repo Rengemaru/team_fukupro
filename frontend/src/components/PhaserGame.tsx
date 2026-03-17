@@ -12,12 +12,13 @@ export function PhaserGame() {
 
     (async () => {
       // 動的インポート：Phaser とシーンをランタイムで読み込む
-      const [{ default: Phaser }, { TitleScene }, { GameScene }, { MapScene }, { VillagerScene }] = await Promise.all([
+      const [{ default: Phaser }, { TitleScene }, { GameScene }, { MapScene }, { VillagerScene }, { ClearScene }] = await Promise.all([
         import('phaser'),
         import('../scenes/TitleScene'),
         import('../scenes/GameScene'),
         import('../scenes/MapScene'),
         import('../scenes/VillagerScene'),
+        import('../scenes/ClearScene'),
       ]);
 
       if (!mounted || !containerRef.current) return;
@@ -33,7 +34,7 @@ export function PhaserGame() {
           autoCenter: Phaser.Scale.CENTER_BOTH,
         },
         pixelArt: true,
-        scene: [TitleScene, MapScene, GameScene, VillagerScene],
+        scene: [TitleScene, MapScene, GameScene, VillagerScene, ClearScene],
       });
     })();
 

@@ -222,9 +222,11 @@ export class MapScene extends Phaser.Scene {
 
     this.cameras.main.fade(500, 0, 0, 0);
 
-    if (node.type === 'goal' || node.type === 'enemy') {
+    if (node.type === 'goal') {
+      this.time.delayedCall(500, () => this.scene.start('ClearScene'));
+    } else if (node.type === 'enemy') {
       this.time.delayedCall(500, () => {
-        this.scene.start('GameScene', { nodeId: node.id, isBoss: node.type === 'goal' });
+        this.scene.start('GameScene', { nodeId: node.id });
       });
     } else {
       // villager
