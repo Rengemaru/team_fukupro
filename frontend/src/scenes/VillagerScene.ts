@@ -85,7 +85,10 @@ export class VillagerScene extends Phaser.Scene {
     const villagerX = W * 0.64;
     const hasVillager = this.textures.exists(villagerKey) && this.textures.get(villagerKey).key !== '__MISSING';
     if (hasVillager) {
-      this.add.image(villagerX, groundY, villagerKey).setOrigin(0.5, 1).setScale(0.60);
+      this.add.image(villagerX, groundY, villagerKey)
+        .setOrigin(0.5, 1)
+        .setScale(0.60)
+        .setFlipX(true);
     } else {
       this.makeFallbackVillager(villagerX, groundY, villagerType);
     }

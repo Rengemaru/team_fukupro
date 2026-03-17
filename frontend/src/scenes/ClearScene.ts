@@ -218,7 +218,10 @@ export class ClearScene extends Phaser.Scene {
       k => this.textures.exists(k) && this.textures.get(k).key !== '__MISSING'
     );
     if (key) {
-      this.add.image(charX, cliffTop, key).setOrigin(0.5, 1).setScale(1.35);
+      this.add.image(charX, cliffTop, key)
+        .setOrigin(0.5, 1)
+        .setScale(1.35)
+        .setFlipX(true);
     }
   }
 
