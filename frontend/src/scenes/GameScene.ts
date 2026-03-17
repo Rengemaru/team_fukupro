@@ -274,7 +274,7 @@ export class GameScene extends Phaser.Scene {
       this.time.delayedCall(180, () => {
         this.launchProjectile(type, cfg.projColor, () => {
           const dmg = Phaser.Math.Between(6, 16);
-          this.onProjectileHit(dmg, cfg.projColor, type);
+          this.onProjectileHit(dmg, cfg.projColor);
         });
       });
     });
@@ -411,7 +411,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ─── ヒット処理 ───────────────────────────────────────────
-  private onProjectileHit(dmg: number, color: number, _type: WeatherType) {
+  private onProjectileHit(dmg: number, color: number) {
     this.slimeHp = Math.max(0, this.slimeHp - dmg);
     let flash = 0;
     const doFlash = () => {
