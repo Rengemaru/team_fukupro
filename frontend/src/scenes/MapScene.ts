@@ -267,7 +267,7 @@ export class MapScene extends Phaser.Scene {
     const typeName = current.type === 'start'   ? 'スタート地点' :
                      current.type === 'goal'    ? '👑 ゴール'    :
                      current.type === 'enemy'   ? '敵エリア'     : '村人エリア';
-    const infoStr = `現在地: ノード${playerNodeId}（${typeName}）　　光る枠のノードを選んで進もう`;
+    const infoStr = `現在地: ノード${playerNodeId}（${typeName}）  光る枠のノードを選んで進もう`;
     this.add.text(W / 2, H - 22, infoStr, {
       fontSize: '13px',
       fontFamily: '"Yu Gothic","YuGothic",monospace',
