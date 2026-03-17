@@ -73,7 +73,9 @@ class MapGenerator
 
       sorted = candidates.sort_by { |n| distance(node[:x], node[:y], n[:x], n[:y]) }
       pool   = sorted.first([6, sorted.size].min)
-      count  = rand(2..[4, pool.size].min)
+      lo     = [2, pool.size].min
+      hi     = [4, pool.size].min
+      count  = rand(lo..hi)
       node[:connections] = pool.sample(count).map { |n| n[:id] }
     end
   end
@@ -184,15 +186,15 @@ class MapGenerator
     nodes.each do |node|
       case node[:id]
       when 0
-        node[:type] = Constants::MapNode::START
+        node[:type] = ::Constants::MapNode::START
       when goal_id
-        node[:type] = Constants::MapNode::GOAL
+        node[:type] = ::Constants::MapNode::GOAL
       else
         if rand < MAP_CONSTANTS[:villager_probability]
-          node[:type]          = Constants::MapNode::VILLAGER
+          node[:type]          = ::Constants::MapNode::VILLAGER
           node[:village_event] = MAP_CONSTANTS[:village_event_types].sample
         else
-          node[:type] = Constants::MapNode::ENEMY
+          node[:type] = ::Constants::MapNode::ENEMY
         end
       end
     end
