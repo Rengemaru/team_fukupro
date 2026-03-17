@@ -34,7 +34,6 @@ export class ClearScene extends Phaser.Scene {
     const diagLen = Math.sqrt(W * W + H * H);
     for (let i = 0; i < 14; i++) {
       const angle = (i / 14) * Math.PI * 2;
-      const rayW  = 18 + (i % 3) * 14;
       const alpha = 0.04 + (i % 4) * 0.015;
       const ray   = this.add.graphics();
       ray.fillStyle(0xffdd88, alpha);
