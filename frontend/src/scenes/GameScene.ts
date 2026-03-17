@@ -60,6 +60,8 @@ export class GameScene extends Phaser.Scene {
   private hailDisplayW = 0;
   private hailDisplayH = 0;
   private currentNodeId = -1;
+  private activeWeatherType: WeatherType | null = null;
+  private weatherBtnRedraw: Partial<Record<WeatherType, (hover: boolean) => void>> = {};
 
   constructor() { super({ key: 'GameScene' }); }
 
@@ -105,8 +107,8 @@ export class GameScene extends Phaser.Scene {
     this.game.events.on('weatherChanged', (apiWeather: string) => {
       const type = API_WEATHER_MAP[apiWeather];
       if (type) {
-        this.updateSkyForWeather(type);
-        this.spawnWeatherFx(type);
+        this.highlightWeatherBtn(type);
+        this.attackWithWeather(type);
       }
     }, this);
   }
@@ -351,13 +353,19 @@ export class GameScene extends Phaser.Scene {
 
       const frame = this.add.graphics();
       const drawFrame = (hover: boolean) => {
+        const isActive = this.activeWeatherType === type;
         frame.clear();
-        frame.fillStyle(cfg.btnColor, hover ? 1 : 0.9);
+        frame.fillStyle(cfg.btnColor, hover || isActive ? 1 : 0.9);
         frame.fillRoundedRect(bx, by, btnW, btnH, 6);
-        frame.lineStyle(hover ? 3 : 2, hover ? 0xffffff : cfg.btnGlow, hover ? 1 : 0.85);
+        frame.lineStyle(
+          isActive ? 4 : hover ? 3 : 2,
+          isActive ? 0xffffff : hover ? 0xffffff : cfg.btnGlow,
+          isActive ? 1 : hover ? 1 : 0.85
+        );
         frame.strokeRoundedRect(bx, by, btnW, btnH, 6);
       };
       drawFrame(false);
+      this.weatherBtnRedraw[type] = drawFrame;
 
       // アイコン（左上）& ラベル（中央）
       this.add.text(bx + 8, by + 6, cfg.emoji, { fontSize:'18px' }).setDepth(1);
@@ -708,6 +716,14 @@ export class GameScene extends Phaser.Scene {
       reg.set('playerNodeId', this.currentNodeId);
       this.cameras.main.fade(500, 0, 0, 0);
       this.time.delayedCall(500, () => this.scene.start('MapScene'));
+    });
+  }
+
+  // ─── 天候ボタンハイライト ────────────────────────────────────
+  private highlightWeatherBtn(type: WeatherType) {
+    this.activeWeatherType = type;
+    (Object.keys(this.weatherBtnRedraw) as WeatherType[]).forEach(t => {
+      this.weatherBtnRedraw[t]?.(false);
     });
   }
 

@@ -43,8 +43,8 @@ class WeatherClassifier
     {
       rms:               @frames.sum { |f| f[:rms].to_f } / count,
       zcr:               @frames.sum { |f| f[:zcr].to_f } / count,
-      spectral_centroid: @frames.sum { |f| f[:spectral_centroid].to_f } / count,
-      spectral_rolloff:  @frames.sum { |f| f[:spectral_rolloff].to_f } / count
+      spectral_centroid: @frames.sum { |f| (f[:spectral_centroid] || f[:spectralCentroid]).to_f } / count,
+      spectral_rolloff:  @frames.sum { |f| (f[:spectral_rolloff]  || f[:spectralRolloff]).to_f  } / count
     }
   end
 end

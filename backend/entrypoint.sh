@@ -22,20 +22,6 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
 end
 CORS_EOF
 
-  # Configure weather API endpoint placeholder
-  mkdir -p app/controllers/api
-  cat > app/controllers/api/weather_controller.rb << 'CTRL_EOF'
-module Api
-  class WeatherController < ApplicationController
-    def create
-      # TODO: Implement WeatherClassifier
-      # Receives audio features from frontend, returns weather result
-      render json: { weather: "sunny", message: "WeatherClassifier not yet implemented" }
-    end
-  end
-end
-CTRL_EOF
-
   echo "==> Rails app initialized."
 fi
 

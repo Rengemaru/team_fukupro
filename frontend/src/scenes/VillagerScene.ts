@@ -32,7 +32,20 @@ const WALK_FILE: Record<string, string> = {
   gale_walk5: 'gale_walk5.png',
 };
 
+const VILLAGER_WEATHER_MAP: Record<string, WeatherChoice> = {
+  thunderstorm: 'thunder',
+  rain:         'water',
+  wind:         'wind',
+  sunny:        'fire',
+  hail:         'hail',
+};
+
 export class VillagerScene extends Phaser.Scene {
+  private activeWeatherType: WeatherChoice | null = null;
+  private villagerBtnRedraw: Partial<Record<WeatherChoice, (hover: boolean) => void>> = {};
+  private villagerChoiceTriggers: Partial<Record<WeatherChoice, () => void>> = {};
+  private villagerChoiceMade = false;
+
   constructor() { super({ key: 'VillagerScene' }); }
 
   preload() {
@@ -69,6 +82,11 @@ export class VillagerScene extends Phaser.Scene {
   }
 
   create(data: { nodeId: number; villagerType: 'man' | 'woman' }) {
+    this.villagerChoiceMade = false;
+    this.villagerChoiceTriggers = {};
+    this.villagerBtnRedraw = {};
+    this.activeWeatherType = null;
+
     const W = this.scale.width, H = this.scale.height;
     const nodeId       = data?.nodeId       ?? 0;
     const villagerType = data?.villagerType ?? 'man';
@@ -103,6 +121,25 @@ export class VillagerScene extends Phaser.Scene {
     this.cameras.main.fadeIn(500);
     this.time.delayedCall(300, () => {
       this.animateHeroEntry(W, groundY, () => uiContainer.setVisible(true));
+    });
+
+    this.game.events.on('weatherChanged', (apiWeather: string) => {
+      const type = VILLAGER_WEATHER_MAP[apiWeather];
+      if (type) {
+        this.highlightWeatherBtn(type);
+        this.villagerChoiceTriggers[type]?.();
+      }
+    }, this);
+  }
+
+  shutdown() {
+    this.game.events.off('weatherChanged', undefined, this);
+  }
+
+  private highlightWeatherBtn(type: WeatherChoice) {
+    this.activeWeatherType = type;
+    (Object.keys(this.villagerBtnRedraw) as WeatherChoice[]).forEach(t => {
+      this.villagerBtnRedraw[t]?.(false);
     });
   }
 
@@ -244,13 +281,19 @@ export class VillagerScene extends Phaser.Scene {
 
       const frame = this.add.graphics();
       const draw = (hover: boolean) => {
+        const isActive = this.activeWeatherType === type;
         frame.clear();
-        frame.fillStyle(cfg.btnColor, hover ? 1 : 0.9);
+        frame.fillStyle(cfg.btnColor, hover || isActive ? 1 : 0.9);
         frame.fillRoundedRect(bx, by, btnW, btnH, 6);
-        frame.lineStyle(hover?3:2, hover?0xffffff:cfg.btnGlow, hover?1:0.85);
+        frame.lineStyle(
+          isActive ? 4 : hover ? 3 : 2,
+          isActive ? 0xffffff : hover ? 0xffffff : cfg.btnGlow,
+          isActive ? 1 : hover ? 1 : 0.85
+        );
         frame.strokeRoundedRect(bx, by, btnW, btnH, 6);
       };
       draw(false);
+      this.villagerBtnRedraw[type] = draw;
       add(frame);
       add(this.add.text(bx+btnW/2, by+10, cfg.emoji, {fontSize:'18px'}).setOrigin(0.5, 0));
       add(this.add.text(bx+btnW/2, by+btnH-16, cfg.label, {
@@ -262,9 +305,9 @@ export class VillagerScene extends Phaser.Scene {
         .setInteractive({ useHandCursor:true });
       add(hit);
 
-      hit.on('pointerover',  () => draw(true));
-      hit.on('pointerout',   () => draw(false));
-      hit.on('pointerdown',  () => {
+      const triggerChoice = () => {
+        if (this.villagerChoiceMade) return;
+        this.villagerChoiceMade = true;
         hit.disableInteractive();
         // 天候エフェクト
         for (let j = 0; j < 14; j++) {
@@ -292,7 +335,12 @@ export class VillagerScene extends Phaser.Scene {
           this.cameras.main.fade(500, 0, 0, 0);
           this.time.delayedCall(500, () => this.scene.start('MapScene'));
         });
-      });
+      };
+      this.villagerChoiceTriggers[type] = triggerChoice;
+
+      hit.on('pointerover',  () => draw(true));
+      hit.on('pointerout',   () => draw(false));
+      hit.on('pointerdown',  triggerChoice);
       this.tweens.add({ targets:frame, alpha:0.70, duration:1000+i*110, yoyo:true, repeat:-1, ease:'Sine.easeInOut' });
     });
   }
