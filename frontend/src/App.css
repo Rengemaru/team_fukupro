@@ -40,3 +40,19 @@
 .read-the-docs {
   color: #888;
 }
+
+.error-box {
+  border: 1px solid #f87171;
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 1.2em 1.5em;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.error-box button {
+  margin-top: 0.5em;
+}
