@@ -1,113 +1,200 @@
 class MapGenerator
-  CANVAS_W    = 800
-  CANVAS_H    = 600
-  MARGIN_X    = 100
-  MARGIN_Y    =  60
-  ENEMY_RATIO = 0.6
-
-  # @param size [Integer] マップの行数（start/goal 含む、最小 3）
-  def initialize(size = 5)
-    @size = [ size, 3 ].max
+  def self.call
+    new.generate
   end
 
-  # マスの配列を生成して返す
-  # @return [Array<Hash>] 各マスは id / x / y / type / connections / completed を持つ
   def generate
-    rows      = build_row_sizes
-    nodes     = build_nodes(rows)
-    assign_connections(nodes, rows)
+    nodes = place_nodes
+    assign_connections(nodes)
+    ensure_connectivity(nodes)
+    ensure_multiple_routes(nodes)
+    assign_types(nodes)
     nodes
   end
 
   private
 
-  # 各行のノード数を決める
-  # 例: size=5 → [1, 3, 4, 4, 1]（フロントの既存レイアウトに近い構成）
-  def build_row_sizes
-    mid_count = @size - 2
-    mid = mid_count.times.map { |i| mid_node_count(i, mid_count) }
-    [ 1, *mid, 1 ]
-  end
+  # ── ノード配置 ────────────────────────────────────────
 
-  def mid_node_count(index, total)
-    max = 4
-    # 行番号が中央に近いほど多くなる
-    half  = (total - 1) / 2.0
-    ratio = total == 1 ? 1.0 : 1.0 - (index - half).abs / half
-    [ 1, (ratio * max).ceil ].max
-  end
+  def place_nodes
+    mid_count = rand(MAP_CONSTANTS[:mid_node_count_range])
+    nodes     = []
 
-  def build_nodes(rows)
-    id    = 0
-    nodes = []
-    @row_start_ids = []
+    nodes << new_node(0, MAP_CONSTANTS[:start_x], MAP_CONSTANTS[:start_y])
 
-    rows.each_with_index do |count, row_index|
-      @row_start_ids << id
-      y = y_position(row_index, rows.size)
-
-      count.times do |col_index|
-        x    = x_position(col_index, count)
-        type = resolve_type(row_index, rows.size)
-
-        nodes << {
-          id:          id,
-          x:           x,
-          y:           y,
-          type:        type,
-          connections: [],
-          completed:   false
-        }
-        id += 1
-      end
+    mid_count.times do |i|
+      x, y = random_position(nodes)
+      nodes << new_node(i + 1, x, y)
     end
+
+    goal_id = nodes.size
+    nodes << new_node(goal_id, MAP_CONSTANTS[:goal_x], MAP_CONSTANTS[:goal_y])
 
     nodes
   end
 
-  # 各ノードに次の行のノードを接続する
-  def assign_connections(nodes, rows)
-    rows.each_with_index do |count, row_index|
-      break if row_index >= rows.size - 1
+  def new_node(id, x, y)
+    { id: id, x: x, y: y, type: nil, connections: [], completed: false, village_event: nil }
+  end
 
-      next_start = @row_start_ids[row_index + 1]
-      next_count = rows[row_index + 1]
+  # min_node_distance を満たす座標をランダムに決める（最大 50 回リトライ）
+  def random_position(existing_nodes)
+    x_min = MAP_CONSTANTS[:node_x_margin]
+    x_max = MAP_CONSTANTS[:canvas_width]  - MAP_CONSTANTS[:node_x_margin]
+    y_min = MAP_CONSTANTS[:goal_y]  + MAP_CONSTANTS[:node_y_margin]
+    y_max = MAP_CONSTANTS[:start_y] - MAP_CONSTANTS[:node_y_margin]
+    min_d = MAP_CONSTANTS[:min_node_distance]
 
-      count.times do |col_index|
-        curr_id     = @row_start_ids[row_index] + col_index
-        connections = adjacent_ids(col_index, count, next_start, next_count)
-        nodes[curr_id][:connections] = connections
+    50.times do
+      x = rand(x_min..x_max)
+      y = rand(y_min..y_max)
+      return [x, y] unless existing_nodes.any? { |n| distance(n[:x], n[:y], x, y) < min_d }
+    end
+
+    # フォールバック: 距離条件を無視して配置
+    [rand(x_min..x_max), rand(y_min..y_max)]
+  end
+
+  def distance(x1, y1, x2, y2)
+    Math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+  end
+
+  # ── 接続生成 ─────────────────────────────────────────
+  # y が小さい（ゴール側）ノードへの一方向接続のみ生成
+
+  def assign_connections(nodes)
+    goal_id = nodes.last[:id]
+
+    nodes.each do |node|
+      next if node[:id] == goal_id
+
+      candidates = nodes.select { |n| n[:y] < node[:y] }
+      next if candidates.empty?
+
+      sorted = candidates.sort_by { |n| distance(node[:x], node[:y], n[:x], n[:y]) }
+      pool   = sorted.first([6, sorted.size].min)
+      count  = rand(2..[4, pool.size].min)
+      node[:connections] = pool.sample(count).map { |n| n[:id] }
+    end
+  end
+
+  # ── 到達可能性の保証 ──────────────────────────────────
+  # BFS でスタートから到達できないノードに接続を追加して解消
+
+  def ensure_connectivity(nodes)
+    goal_id = nodes.last[:id]
+
+    10.times do
+      reachable   = bfs_reachable(nodes, 0)
+      unreachable = nodes.map { |n| n[:id] } - reachable
+      break if unreachable.empty?
+
+      unreachable.each do |iso_id|
+        iso     = nodes.find { |n| n[:id] == iso_id }
+        # 到達済みノードのうち、孤立ノードより y が大きい（スタート側）ものを優先
+        sources = nodes.select { |n| reachable.include?(n[:id]) && n[:y] > iso[:y] }
+        sources = nodes.select { |n| reachable.include?(n[:id]) && n[:id] != goal_id } if sources.empty?
+        next if sources.empty?
+
+        nearest = sources.min_by { |n| distance(n[:x], n[:y], iso[:x], iso[:y]) }
+        nearest[:connections] << iso_id unless nearest[:connections].include?(iso_id)
       end
     end
   end
 
-  # 現在行 col_index のノードが接続する次行のノード ID 一覧
-  def adjacent_ids(col_index, curr_count, next_start, next_count)
-    ratio  = curr_count == 1 ? 0.5 : col_index.to_f / (curr_count - 1)
-    center = ratio * (next_count - 1)
-    lo     = [ center.floor - 1, 0 ].max
-    hi     = [ center.ceil  + 1, next_count - 1 ].min
-    (lo..hi).map { |i| next_start + i }
+  def bfs_reachable(nodes, start_id)
+    node_map = nodes.each_with_object({}) { |n, h| h[n[:id]] = n }
+    visited  = []
+    queue    = [start_id]
+
+    until queue.empty?
+      current = queue.shift
+      next if visited.include?(current)
+
+      visited << current
+      node_map[current][:connections].each { |conn| queue << conn }
+    end
+
+    visited
   end
 
-  def resolve_type(row_index, total_rows)
-    return Constants::MapNode::START    if row_index == 0
-    return Constants::MapNode::GOAL     if row_index == total_rows - 1
+  # ── 複数ルート保証 ────────────────────────────────────
+  # スタートからゴールへのエッジ非共有の独立経路が min_route_count 本未満なら補完
 
-    rand < ENEMY_RATIO ? Constants::MapNode::ENEMY : Constants::MapNode::VILLAGER
+  def ensure_multiple_routes(nodes)
+    return if independent_path_count(nodes) >= MAP_CONSTANTS[:min_route_count]
+
+    goal_id   = nodes.last[:id]
+    mid_nodes = nodes.reject { |n| n[:id] == 0 || n[:id] == goal_id }
+
+    mid_nodes.each do |node|
+      candidates = mid_nodes.select { |n| n[:y] < node[:y] && !node[:connections].include?(n[:id]) }
+      next if candidates.empty?
+
+      target = candidates.min_by { |n| distance(node[:x], node[:y], n[:x], n[:y]) }
+      node[:connections] << target[:id]
+      break if independent_path_count(nodes) >= MAP_CONSTANTS[:min_route_count]
+    end
   end
 
-  def x_position(col_index, col_count)
-    return CANVAS_W / 2 if col_count == 1
+  # エッジ非共有の独立経路数をカウント（最大 min_route_count まで）
+  def independent_path_count(nodes)
+    goal_id    = nodes.last[:id]
+    node_map   = nodes.each_with_object({}) { |n, h| h[n[:id]] = n }
+    used_edges = []
+    count      = 0
 
-    usable = CANVAS_W - MARGIN_X * 2
-    (MARGIN_X + col_index.to_f / (col_count - 1) * usable).round
+    MAP_CONSTANTS[:min_route_count].times do
+      path = dfs_path(node_map, 0, goal_id, used_edges)
+      break unless path
+
+      path.each_cons(2) { |a, b| used_edges << [a, b] }
+      count += 1
+    end
+
+    count
   end
 
-  def y_position(row_index, total_rows)
-    usable    = CANVAS_H - MARGIN_Y * 2
-    bottom_y  = CANVAS_H - MARGIN_Y
-    step      = usable.to_f / (total_rows - 1)
-    (bottom_y - row_index * step).round
+  def dfs_path(node_map, start_id, goal_id, used_edges)
+    stack   = [[start_id, [start_id]]]
+    visited = []
+
+    until stack.empty?
+      current, path = stack.pop
+      next if visited.include?(current)
+
+      visited << current
+      return path if current == goal_id
+
+      node_map[current][:connections].each do |next_id|
+        next if used_edges.include?([current, next_id])
+
+        stack.push([next_id, path + [next_id]])
+      end
+    end
+
+    nil
+  end
+
+  # ── タイプ・village_event 割り当て ────────────────────
+
+  def assign_types(nodes)
+    goal_id = nodes.last[:id]
+
+    nodes.each do |node|
+      case node[:id]
+      when 0
+        node[:type] = Constants::MapNode::START
+      when goal_id
+        node[:type] = Constants::MapNode::GOAL
+      else
+        if rand < MAP_CONSTANTS[:villager_probability]
+          node[:type]          = Constants::MapNode::VILLAGER
+          node[:village_event] = MAP_CONSTANTS[:village_event_types].sample
+        else
+          node[:type] = Constants::MapNode::ENEMY
+        end
+      end
+    end
   end
 end
