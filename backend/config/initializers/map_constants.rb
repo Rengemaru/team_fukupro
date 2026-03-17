@@ -22,5 +22,5 @@ MAP_CONSTANTS = {
   village_event_types: %w[drought flood withered].freeze,
 
   # 複数ルート保証のための最低独立経路数
-  min_route_count: 2,
+  min_route_count: 2
 }.freeze

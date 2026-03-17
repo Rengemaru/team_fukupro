@@ -48,11 +48,11 @@ class MapGenerator
     50.times do
       x = rand(x_min..x_max)
       y = rand(y_min..y_max)
-      return [x, y] unless existing_nodes.any? { |n| distance(n[:x], n[:y], x, y) < min_d }
+      return [ x, y ] unless existing_nodes.any? { |n| distance(n[:x], n[:y], x, y) < min_d }
     end
 
     # フォールバック: 距離条件を無視して配置
-    [rand(x_min..x_max), rand(y_min..y_max)]
+    [ rand(x_min..x_max), rand(y_min..y_max) ]
   end
 
   def distance(x1, y1, x2, y2)
@@ -72,9 +72,9 @@ class MapGenerator
       next if candidates.empty?
 
       sorted = candidates.sort_by { |n| distance(node[:x], node[:y], n[:x], n[:y]) }
-      pool   = sorted.first([6, sorted.size].min)
-      lo     = [2, pool.size].min
-      hi     = [4, pool.size].min
+      pool   = sorted.first([ 6, sorted.size ].min)
+      lo     = [ 2, pool.size ].min
+      hi     = [ 4, pool.size ].min
       count  = rand(lo..hi)
       node[:connections] = pool.sample(count).map { |n| n[:id] }
     end
@@ -107,7 +107,7 @@ class MapGenerator
   def bfs_reachable(nodes, start_id)
     node_map = nodes.each_with_object({}) { |n, h| h[n[:id]] = n }
     visited  = []
-    queue    = [start_id]
+    queue    = [ start_id ]
 
     until queue.empty?
       current = queue.shift
@@ -150,7 +150,7 @@ class MapGenerator
       path = dfs_path(node_map, 0, goal_id, used_edges)
       break unless path
 
-      path.each_cons(2) { |a, b| used_edges << [a, b] }
+      path.each_cons(2) { |a, b| used_edges << [ a, b ] }
       count += 1
     end
 
@@ -158,7 +158,7 @@ class MapGenerator
   end
 
   def dfs_path(node_map, start_id, goal_id, used_edges)
-    stack   = [[start_id, [start_id]]]
+    stack   = [ [ start_id, [ start_id ] ] ]
     visited = []
 
     until stack.empty?
@@ -169,9 +169,9 @@ class MapGenerator
       return path if current == goal_id
 
       node_map[current][:connections].each do |next_id|
-        next if used_edges.include?([current, next_id])
+        next if used_edges.include?([ current, next_id ])
 
-        stack.push([next_id, path + [next_id]])
+        stack.push([ next_id, path + [ next_id ] ])
       end
     end
 
