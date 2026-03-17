@@ -15,7 +15,6 @@ const WALK_PATHS: Record<string, string> = {
 };
 
 export class TitleScene extends Phaser.Scene {
-  private layers: Phaser.GameObjects.TileSprite[] = [];
 
   constructor() { super({ key: 'TitleScene' }); }
 
@@ -37,6 +36,10 @@ export class TitleScene extends Phaser.Scene {
     // 村人立ち絵
     this.load.image('man_murabito',   'man_murabito.jpg');
     this.load.image('woman_murabito', 'woman_murabito.jpg');
+    // ステージ背景画像
+    this.load.image('bg_taitle', 'taitle.jpg');
+    this.load.image('bg_farest', 'farest1.jpg');
+    this.load.image('bg_mura',    'mura.jpg');
     this.load.on('loaderror', (f: Phaser.Loader.File) =>
       console.warn('[TitleScene] load failed:', f.key));
   }
@@ -80,7 +83,7 @@ export class TitleScene extends Phaser.Scene {
   create() {
     const W = this.scale.width;
     const H = this.scale.height;
-    const groundY = Math.floor(H * 0.78);
+    const groundY = Math.floor(H * 0.84);
 
     // 全キャラクター画像の黒背景を除去（ゲームシーンでも共有される）
     [...WALK_KEYS, ...IDLE_KEYS,
@@ -91,21 +94,16 @@ export class TitleScene extends Phaser.Scene {
     ].forEach(key => this.removeBlackBg(key));
 
     this.cameras.main.setBackgroundColor('#0d0820');
-    this.addStars(W, H);
-    this.addMoon(W * 0.85, H * 0.13);
-
-    this.makeMountainTexture();
-    this.makeForestTexture();
-    this.makeVillageTexture();
-    this.makeGroundTexture();
-
-    this.add.rectangle(0, H, W, H - groundY + 20, 0x1a0e06).setOrigin(0, 1);
-    this.layers = [
-      this.add.tileSprite(0, groundY - 80, W, 140, 'bg_mountain').setOrigin(0, 1),
-      this.add.tileSprite(0, groundY,      W, 120, 'bg_forest').setOrigin(0, 1),
-      this.add.tileSprite(0, groundY + 5,  W, 100, 'bg_village').setOrigin(0, 1),
-      this.add.tileSprite(0, groundY + 15, W,  30, 'bg_ground').setOrigin(0, 1),
-    ];
+    // 幅広1枚をゆっくり左右にパン（切れ目なし）
+    const bgImg = this.add.image(W / 2 + W * 0.25, H / 2, 'bg_taitle').setDisplaySize(W * 1.5, H);
+    this.tweens.add({
+      targets: bgImg,
+      x: W / 2 - W * 0.25,
+      duration: 18000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
 
     this.createCharacter(W / 2, groundY);
     this.addTitle(W, H);
@@ -117,69 +115,6 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.fadeIn(600);
   }
 
-  // ─── 星 ───────────────────────────────────────────────────
-  private addStars(W: number, H: number) {
-    for (let i = 0; i < 110; i++) {
-      const x = Phaser.Math.Between(0, W);
-      const y = Phaser.Math.Between(0, H * 0.55);
-      const s = this.add.circle(x, y, Phaser.Math.FloatBetween(0.5, 1.8), 0xffffff, Phaser.Math.FloatBetween(0.4, 1.0));
-      this.tweens.add({ targets: s, alpha: 0.05, duration: Phaser.Math.Between(700, 3000), yoyo: true, repeat: -1, delay: Phaser.Math.Between(0, 2000) });
-    }
-  }
-
-  // ─── 月 ───────────────────────────────────────────────────
-  private addMoon(x: number, y: number) {
-    for (let r = 75; r >= 52; r -= 8) this.add.circle(x, y, r, 0xfff8dc, 0.035);
-    this.add.circle(x, y, 42, 0xfff8e7);
-    this.add.circle(x - 13, y - 7, 8, 0xede4cc, 0.55);
-    this.add.circle(x + 11, y + 11, 5, 0xede4cc, 0.45);
-  }
-
-  // ─── 背景テクスチャ ────────────────────────────────────────
-  private makeMountainTexture() {
-    const g = this.make.graphics({ x: 0, y: 0 });
-    g.fillStyle(0x1a0a3e);
-    g.beginPath();
-    g.moveTo(0,140);g.lineTo(0,95);g.lineTo(80,22);g.lineTo(170,78);g.lineTo(265,5);
-    g.lineTo(370,58);g.lineTo(448,12);g.lineTo(545,68);g.lineTo(625,18);g.lineTo(720,62);g.lineTo(800,28);g.lineTo(800,140);
-    g.closePath();g.fillPath();
-    g.fillStyle(0x251550);
-    g.beginPath();
-    g.moveTo(0,140);g.lineTo(0,112);g.lineTo(55,72);g.lineTo(125,105);g.lineTo(205,48);
-    g.lineTo(285,84);g.lineTo(358,58);g.lineTo(435,98);g.lineTo(505,52);g.lineTo(582,88);g.lineTo(652,42);g.lineTo(735,78);g.lineTo(800,55);g.lineTo(800,140);
-    g.closePath();g.fillPath();
-    g.fillStyle(0xdde8ff, 0.65);
-    [[80,22],[265,5],[448,12],[625,18],[800,28]].forEach(([px,py]) => g.fillTriangle(px-18,py+22,px,py-4,px+18,py+22));
-    g.generateTexture('bg_mountain', 800, 140); g.destroy();
-  }
-  private makeForestTexture() {
-    const g = this.make.graphics({ x: 0, y: 0 });
-    for (let x = -10; x < 810; x += 33) {
-      const tH = Phaser.Math.Between(50, 95), tW = Phaser.Math.Between(26, 42), v = Phaser.Math.Between(0, 2);
-      if (v === 0) { g.fillStyle(0x0a2e18);g.fillTriangle(x+tW/2,120-tH,x,106,x+tW,106);g.fillStyle(0x0d3820);g.fillTriangle(x+tW/2,120-tH-12,x+6,120-tH+22,x+tW-6,120-tH+22);g.fillStyle(0x2d1a08);g.fillRect(x+tW/2-4,102,8,18); }
-      else if (v === 1) { g.fillStyle(0x073018);g.fillCircle(x+tW/2,120-tH/2,tW/2+4);g.fillStyle(0x2d1a08);g.fillRect(x+tW/2-4,102,8,18); }
-      else { g.fillStyle(0x2a1808);g.fillRect(x+tW/2-3,120-tH,6,tH);g.fillRect(x+tW/2-18,120-tH+18,18,4);g.fillRect(x+tW/2,120-tH+32,16,4); }
-    }
-    g.generateTexture('bg_forest', 800, 120); g.destroy();
-  }
-  private makeVillageTexture() {
-    const g = this.make.graphics({ x: 0, y: 0 });
-    [{x:10,w:60,wH:65,rH:26,wC:0x3a2010,rC:0x5c1e0e},{x:85,w:42,wH:52,rH:20,wC:0x2e1a0c,rC:0x4a1a0a},{x:142,w:78,wH:82,rH:34,wC:0x3d2010,rC:0x602010},{x:238,w:52,wH:58,rH:23,wC:0x281508,rC:0x4a1508},{x:308,w:68,wH:72,rH:30,wC:0x3a2010,rC:0x5a1e10},{x:394,w:50,wH:55,rH:22,wC:0x251408,rC:0x401208},{x:460,w:90,wH:88,rH:38,wC:0x3d2010,rC:0x621808},{x:568,w:58,wH:65,rH:27,wC:0x2e1a0c,rC:0x4c1a0c},{x:644,w:72,wH:75,rH:32,wC:0x3a2010,rC:0x5a1e10},{x:734,w:62,wH:70,rH:28,wC:0x281808,rC:0x4a1608}].forEach(b => {
-      g.fillStyle(b.wC);g.fillRect(b.x,100-b.wH,b.w,b.wH);
-      g.fillStyle(b.rC);g.fillTriangle(b.x-5,100-b.wH+2,b.x+b.w/2,100-b.wH-b.rH,b.x+b.w+5,100-b.wH+2);
-      g.fillStyle(0xffee88,0.85);g.fillRect(b.x+b.w/2-8,100-b.wH+16,16,12);
-      g.fillStyle(0x1a0800);g.fillRect(b.x+b.w/2-1,100-b.wH+16,2,12);g.fillRect(b.x+b.w/2-8,100-b.wH+22,16,2);
-      g.fillStyle(0x120600);g.fillRect(b.x+b.w/2-7,74,14,26);
-    });
-    g.generateTexture('bg_village', 900, 100); g.destroy();
-  }
-  private makeGroundTexture() {
-    const g = this.make.graphics({ x: 0, y: 0 });
-    g.fillStyle(0x1a0e06);g.fillRect(0,0,800,30);
-    g.fillStyle(0x1e3b0f);
-    for (let x = 0; x < 800; x += 6) g.fillRect(x, 0, 4, Phaser.Math.Between(4, 10));
-    g.generateTexture('bg_ground', 800, 30); g.destroy();
-  }
 
   // ─── キャラクター（歩行スプライト） ───────────────────────
   private createCharacter(cx: number, cy: number) {
@@ -373,7 +308,6 @@ export class TitleScene extends Phaser.Scene {
   }
 
   update() {
-    const speeds = [0.12, 0.28, 0.58, 1.1];
-    this.layers.forEach((layer, i) => { layer.tilePositionX += speeds[i]; });
+    // 背景スクロールはtweenで管理
   }
 }

@@ -84,27 +84,15 @@ export class MapScene extends Phaser.Scene {
     this.cameras.main.fadeIn(500);
   }
 
-  // ─── 背景（暗いファンタジーグラデーション＋星） ─────────────
+  // ─── 背景 ─────────────────────────────────────────────────────
   private drawBackground(W: number, H: number) {
-    // グラデーション背景（暗紫 → 暗青）
-    const bg = this.add.graphics();
-    bg.fillGradientStyle(0x120820, 0x120820, 0x0a1030, 0x0a1030, 1);
-    bg.fillRect(0, 0, W, H);
+    // 背景画像
+    this.add.image(W / 2, H / 2, 'bg_farest').setDisplaySize(W, H);
 
-    // 星
-    for (let i = 0; i < 90; i++) {
-      const x = Phaser.Math.Between(0, W);
-      const y = Phaser.Math.Between(0, H);
-      const r = Phaser.Math.FloatBetween(0.5, 1.8);
-      const a = Phaser.Math.FloatBetween(0.3, 1.0);
-      const star = this.add.circle(x, y, r, 0xffffff, a);
-      this.tweens.add({
-        targets: star, alpha: 0.05,
-        duration: Phaser.Math.Between(800, 3000),
-        yoyo: true, repeat: -1,
-        delay: Phaser.Math.Between(0, 2500),
-      });
-    }
+    // 暗いオーバーレイ（マップUIを見やすくする）
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x080412, 0.55);
+    overlay.fillRect(0, 0, W, H);
   }
 
   // ─── エッジ描画 ──────────────────────────────────────────

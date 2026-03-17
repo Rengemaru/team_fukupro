@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-const SPRITE_SCALE     = 1.5;   // ← キャラクター（立ち・攻撃）の倍率
+const SPRITE_SCALE     = 1.7;   // ← キャラクター（立ち・攻撃）の倍率（手前→大きめ）
 const ATK_SPRITE_SCALE = 2.0;   // ← 攻撃エフェクト画像の倍率
 const IDLE_KEYS = ['gale_idle','gale_idle1','gale_idle2','gale_idle3'] as const;
 
@@ -87,10 +87,10 @@ export class GameScene extends Phaser.Scene {
     this.attackEnabled = true;
     const W = this.scale.width;
     const H = this.scale.height;
-    this.slimeX  = W * 0.70;
-    this.slimeY  = H * 0.60;
-    this.playerX = W * 0.22;
-    this.playerBaseY = H * 0.70;
+    this.slimeX  = W * 0.68;
+    this.slimeY  = H * 0.55;   // 奥（高め）
+    this.playerX = W * 0.20;
+    this.playerBaseY = H * 0.73; // 手前（低め）
 
     if (!this.textures.exists('slime')) this.makeSlimeTexture();
 
@@ -113,99 +113,20 @@ export class GameScene extends Phaser.Scene {
     }, this);
   }
 
-  // ─── 背景（2.5D奥行き感） ──────────────────────────────────
+  // ─── 背景 ──────────────────────────────────────────────────
   private drawBackground(W: number, H: number) {
-    const GY = H * 0.63; // 地平線
+    const GY = H * 0.63;
 
-    // ① 空（天候で切り替え可）
+    // 背景画像（フルスクリーン・地面部分まで見せる）
+    this.add.image(W / 2, H * 0.42, 'bg_farest').setDisplaySize(W, H);
+
+    // 天候エフェクト用オーバーレイ（初期は透明）
     this.skyGfx = this.add.graphics();
-    this.skyGfx.fillGradientStyle(0x0c1e44, 0x0c1e44, 0x1e5090, 0x1e5090, 1);
+    this.skyGfx.setAlpha(0);
     this.skyGfx.fillRect(0, 0, W, GY);
 
-    // ② 地平線グロー
-    const hGlow = this.add.graphics();
-    hGlow.fillGradientStyle(0x2255aa, 0x2255aa, 0x0c1e44, 0x0c1e44, 0.45);
-    hGlow.fillRect(0, GY - 55, W, 55);
-
-    // ③ 遠景山（薄い・遠近感）
-    const farM = this.add.graphics();
-    farM.fillStyle(0x182e50, 0.42);
-    farM.beginPath(); farM.moveTo(0, GY);
-    [0,90,200,320,430,540,640,720,800].forEach((x,i) => farM.lineTo(x, GY-[0,28,12,38,16,30,8,22,0][i]));
-    farM.lineTo(W, GY); farM.closePath(); farM.fillPath();
-
-    // ④ 中景山（くっきり）
-    const midM = this.add.graphics();
-    midM.fillStyle(0x0f1c3a, 0.88);
-    midM.beginPath();
-    midM.moveTo(0,GY); midM.lineTo(0,GY-72); midM.lineTo(W*0.10,GY-48); midM.lineTo(W*0.20,GY-105);
-    midM.lineTo(W*0.32,GY-60); midM.lineTo(W*0.44,GY-88); midM.lineTo(W*0.53,GY-52);
-    midM.lineTo(W*0.63,GY-98); midM.lineTo(W*0.76,GY-65); midM.lineTo(W*0.88,GY-110);
-    midM.lineTo(W,GY-72); midM.lineTo(W,GY); midM.closePath(); midM.fillPath();
-    // 雪頂
-    midM.fillStyle(0xddeeff, 0.55);
-    [[W*0.20,GY-105,20,26],[W*0.44,GY-88,16,20],[W*0.63,GY-98,18,23],[W*0.88,GY-110,20,28]].forEach(([px,py,tw,th]) => {
-      midM.fillTriangle(px-tw, py+th, px, py-4, px+tw, py+th);
-    });
-
-    // ⑤ 地面（グラデーション）
-    const ground = this.add.graphics();
-    ground.fillGradientStyle(0x1e5010, 0x1e5010, 0x0e2808, 0x0e2808, 1);
-    ground.fillRect(0, GY, W, H * 0.80 - GY);
-
-    // ⑥ パース透視グリッド（奥行き線）
-    const grid = this.add.graphics();
-    const vanX = W / 2, botY = H * 0.80;
-    grid.lineStyle(1, 0x1e4a12, 0.28);
-    for (let i = 0; i <= 12; i++) {
-      grid.beginPath(); grid.moveTo(vanX, GY); grid.lineTo((i / 12) * W, botY); grid.strokePath();
-    }
-    grid.lineStyle(1, 0x1e4a12, 0.20);
-    for (let j = 1; j <= 5; j++) {
-      const t = j / 5, gy = GY + (botY - GY) * t, hw = W / 2 * t;
-      grid.beginPath(); grid.moveTo(vanX - hw, gy); grid.lineTo(vanX + hw, gy); grid.strokePath();
-    }
-
-    // ⑦ バトルサークル（闘技場）
-    const arena = this.add.graphics();
-    arena.lineStyle(2, 0x3a6a22, 0.40);
-    arena.strokeEllipse(W/2, GY+(botY-GY)*0.65, W*0.56, (botY-GY)*0.46);
-    arena.lineStyle(1, 0x2a5218, 0.22);
-    arena.strokeEllipse(W/2, GY+(botY-GY)*0.65, W*0.38, (botY-GY)*0.28);
-
-    // ⑧ 地平線草ライン
-    this.add.rectangle(0, GY, W, 7, 0x2a5a1a).setOrigin(0, 0);
-
-    // ⑨ 両サイドの木（深度ガイド）
-    const trees = this.add.graphics();
-    ([-18,28,72,114] as number[]).forEach((tx,i) => {
-      const sy=[0.80,0.82,0.78,0.83][i], ty=H*sy, th=(1-sy)*H*2.4;
-      trees.fillStyle(0x082210,0.88); trees.fillTriangle(tx,ty,tx-22,ty+th,tx+22,ty+th);
-      trees.fillStyle(0x0d3018,0.70); trees.fillTriangle(tx,ty-15,tx-15,ty+th*0.55,tx+15,ty+th*0.55);
-    });
-    ([W+18,W-28,W-72,W-114] as number[]).forEach((tx,i) => {
-      const sy=[0.80,0.82,0.78,0.83][i], ty=H*sy, th=(1-sy)*H*2.4;
-      trees.fillStyle(0x082210,0.88); trees.fillTriangle(tx,ty,tx-22,ty+th,tx+22,ty+th);
-      trees.fillStyle(0x0d3018,0.70); trees.fillTriangle(tx,ty-15,tx-15,ty+th*0.55,tx+15,ty+th*0.55);
-    });
-
-    // ⑩ 前景岩・草（最手前・奥行き強調）
-    const fg = this.add.graphics();
-    fg.fillStyle(0x1c1a14, 0.85);
-    fg.fillEllipse(42, H*0.786, 58, 18); fg.fillEllipse(12, H*0.795, 36, 13);
-    fg.fillEllipse(W-42, H*0.786, 58, 18); fg.fillEllipse(W-12, H*0.795, 36, 13);
-    fg.fillStyle(0x0f2808, 0.75);
-    for (let gx = 8; gx < W; gx += 20) {
-      fg.fillTriangle(gx, H*0.783, gx-4, H*0.783+11, gx+4, H*0.783+11);
-    }
-
-    // ⑪ 雲（アニメ）
-    [{x:W*0.14,y:H*0.09,s:1.0},{x:W*0.44,y:H*0.06,s:0.8},{x:W*0.74,y:H*0.13,s:1.2}].forEach(({x,y,s}) => {
-      const c = this.add.graphics();
-      c.fillStyle(0xffffff, 0.48);
-      c.fillEllipse(x,y,110*s,38*s); c.fillEllipse(x-28*s,y+11*s,68*s,28*s); c.fillEllipse(x+28*s,y+11*s,68*s,28*s);
-      this.tweens.add({ targets:c, x:x+16, duration:5000+x*2, yoyo:true, repeat:-1, ease:'Sine.easeInOut' });
-    });
+    // HUD境界用の暗い帯
+    this.add.rectangle(0, H * 0.80, W, H * 0.20, 0x060e04).setOrigin(0, 0);
   }
 
   // ─── スライムテクスチャ ─────────────────────────────────────
@@ -228,15 +149,20 @@ export class GameScene extends Phaser.Scene {
     const hasIdle = this.textures.exists('gale_idle') && this.textures.get('gale_idle').key !== '__MISSING';
     const hasCast = this.textures.exists('gale_cast') && this.textures.get('gale_cast').key !== '__MISSING';
 
+    // ── 足元の影（キャラより先に描画→背面表示） ──
+    const playerShadow = this.add.ellipse(x, y + 5, 62, 14, 0x000000, 0.40);
+    this.tweens.add({ targets: playerShadow, scaleX: 0.75, alpha: 0.15, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
     // ── Idle Animation（個別フレーム手動サイクル） ──
     if (hasIdle) {
       const img = this.add.image(x, y, IDLE_KEYS[0])
-        .setOrigin(0.5, 1)
+        .setOrigin(0.5, 1) // 足元を基準にする
         .setScale(SPRITE_SCALE);
 
-      // 最初のフレームのサイズを固定 → フレームごとの高さ違いによる上下ずれを防ぐ
-      const fixedW = img.displayWidth;
-      const fixedH = img.displayHeight;
+      // 【調整用】フレームごとの上下のズレをピクセル単位で補正する配列
+      // IDLE_KEYSの並びに対応しています。
+      // もし特定のフレームだけ足が浮く/沈む場合は、ここを [0, -2, 0, 2] のように調整してください。
+      const yOffsets = [0, 2, 2, 10];
 
       let fi = 0;
       this.time.addEvent({
@@ -245,8 +171,11 @@ export class GameScene extends Phaser.Scene {
         callback: () => {
           if (img.visible) {
             fi = (fi + 1) % IDLE_KEYS.length;
+            // 画像を切り替えるだけ（スケールはSPRITE_SCALEが維持される）
             img.setTexture(IDLE_KEYS[fi]);
-            img.setDisplaySize(fixedW, fixedH);  // サイズ固定でずれを防止
+            
+            // setDisplaySizeでの強制リサイズを廃止し、Y座標の微調整に変更
+            img.y = y + yOffsets[fi];
           }
         },
       });
@@ -298,8 +227,8 @@ export class GameScene extends Phaser.Scene {
 
   // ─── スライム ──────────────────────────────────────────────
   private createSlime(x: number, y: number) {
-    this.slimeSprite = this.add.image(x, y, 'slime').setScale(2.2);
-    this.slimeBounce = this.tweens.add({ targets:this.slimeSprite, y:y-14, scaleX:2.4, scaleY:2.0, duration:550, yoyo:true, repeat:-1, ease:'Sine.easeInOut' });
+    this.slimeSprite = this.add.image(x, y, 'slime').setScale(1.7); // 奥にいるので小さめ
+    this.slimeBounce = this.tweens.add({ targets:this.slimeSprite, y:y-10, scaleX:1.85, scaleY:1.55, duration:550, yoyo:true, repeat:-1, ease:'Sine.easeInOut' });
     const shadow = this.add.ellipse(x, y+62, 90, 20, 0x000000, 0.25);
     this.tweens.add({ targets:shadow, scaleX:1.1, alpha:0.12, duration:550, yoyo:true, repeat:-1, ease:'Sine.easeInOut' });
     this.add.text(x, y-90, 'スライム', { fontSize:'17px', fontFamily:'"Yu Gothic","YuGothic",monospace', color:'#ffffff', stroke:'#000', strokeThickness:2 }).setOrigin(0.5);
@@ -553,6 +482,7 @@ export class GameScene extends Phaser.Scene {
     this.skyGfx.clear();
     this.skyGfx.fillGradientStyle(tl, tr, bl, br, a);
     this.skyGfx.fillRect(0, 0, W, H * 0.68);
+    this.skyGfx.setAlpha(0.45);
   }
 
   // ─── 天候エフェクト（一時的な空演出） ─────────────────────

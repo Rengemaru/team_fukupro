@@ -91,7 +91,7 @@ export class VillagerScene extends Phaser.Scene {
     const nodeId       = data?.nodeId       ?? 0;
     const villagerType = data?.villagerType ?? 'man';
     const villagerKey  = villagerType === 'man' ? 'man_murabito' : 'woman_murabito';
-    const groundY      = H * 0.68;
+    const groundY      = H * 0.72;
 
     this.removeBlackBg('man_murabito');
     this.removeBlackBg('woman_murabito');
@@ -145,76 +145,13 @@ export class VillagerScene extends Phaser.Scene {
 
   // ─── 村の背景 ─────────────────────────────────────────────────
   private buildVillageBackground(W: number, H: number, groundY: number) {
-    // 夕暮れ空
-    const sky = this.add.graphics();
-    sky.fillGradientStyle(0x1a2a55, 0x1a2a55, 0x6a4a22, 0x6a4a22, 1);
-    sky.fillRect(0, 0, W, groundY);
+    // 背景画像（やや下寄りに配置して地面ラインを合わせる）
+    this.add.image(W / 2, H * 0.52, 'bg_mura').setDisplaySize(W, H * 1.04);
 
-    // 星
-    for (let i = 0; i < 55; i++) {
-      const sx = Phaser.Math.Between(0, W);
-      const sy = Phaser.Math.Between(0, groundY * 0.6);
-      const star = this.add.circle(sx, sy, Phaser.Math.FloatBetween(0.4,1.5), 0xffffff, Phaser.Math.FloatBetween(0.3,0.9));
-      this.tweens.add({ targets:star, alpha:0.05, duration:Phaser.Math.Between(1000,3500), yoyo:true, repeat:-1, delay:Phaser.Math.Between(0,2000) });
-    }
-
-    // 遠景山
-    const mtn = this.add.graphics();
-    mtn.fillStyle(0x1a1a3a, 0.65);
-    mtn.beginPath(); mtn.moveTo(0, groundY);
-    [0,120,200,300,380,480,560,660,740,800].forEach((x,i) =>
-      mtn.lineTo(x, groundY - [0,55,30,80,40,70,25,60,35,0][i]));
-    mtn.lineTo(W, groundY); mtn.closePath(); mtn.fillPath();
-
-    // 村の建物
-    const buildings = [
-      {x:30,  w:75, h:80, rh:35, wc:0x3a2a18, rc:0x5a2c10},
-      {x:120, w:55, h:62, rh:28, wc:0x2e2010, rc:0x4a2008},
-      {x:185, w:90, h:90, rh:40, wc:0x3d2a1a, rc:0x622010},
-      {x:580, w:80, h:85, rh:38, wc:0x3a2a18, rc:0x5a2c10},
-      {x:672, w:58, h:65, rh:28, wc:0x2e2010, rc:0x481a08},
-      {x:740, w:78, h:88, rh:40, wc:0x3d2a1a, rc:0x602010},
-    ];
-    const bg2 = this.add.graphics();
-    buildings.forEach(b => {
-      const by = groundY - b.h;
-      bg2.fillStyle(b.wc); bg2.fillRect(b.x, by, b.w, b.h);
-      bg2.fillStyle(b.rc); bg2.fillTriangle(b.x-5, by+2, b.x+b.w/2, by-b.rh, b.x+b.w+5, by+2);
-      bg2.fillStyle(0xffee88, 0.80); bg2.fillRect(b.x+b.w/2-10, by+18, 20, 15);
-      bg2.fillStyle(0x1a0800); bg2.fillRect(b.x+b.w/2-1, by+18, 2, 15);
-      bg2.fillRect(b.x+b.w/2-10, by+25, 20, 2);
-      bg2.fillStyle(0x120600); bg2.fillRect(b.x+b.w/2-8, groundY-b.h*0.3, 16, b.h*0.3);
-    });
-
-    // 石畳の道
-    const path = this.add.graphics();
-    path.fillStyle(0x5a4a38, 0.85);
-    path.beginPath();
-    path.moveTo(W*0.35, groundY); path.lineTo(W*0.65, groundY);
-    path.lineTo(W*0.75, groundY + H*0.30); path.lineTo(W*0.25, groundY + H*0.30);
-    path.closePath(); path.fillPath();
-    path.lineStyle(1, 0x3a2a20, 0.45);
-    for (let row = 1; row <= 4; row++) {
-      const t = row/4;
-      const lx = W*0.35 + (W*0.25-W*0.35)*t, rx = W*0.65 + (W*0.75-W*0.65)*t, py = groundY + H*0.30*t;
-      path.beginPath(); path.moveTo(lx, py); path.lineTo(rx, py); path.strokePath();
-    }
-
-    // 街路樹
-    const trees = this.add.graphics();
-    [[W*0.32, groundY],[W*0.68, groundY],[W*0.28, groundY-10],[W*0.72, groundY-10]].forEach(([tx, ty]) => {
-      trees.fillStyle(0x2a1400, 0.9); trees.fillRect(tx-5, ty-40, 10, 40);
-      trees.fillStyle(0x0e2e0a, 0.88); trees.fillTriangle(tx, ty-80, tx-25, ty-28, tx+25, ty-28);
-      trees.fillStyle(0x112e10, 0.75); trees.fillTriangle(tx, ty-95, tx-18, ty-50, tx+18, ty-50);
-    });
-
-    // 地面
+    // 下部の暗い帯（UIエリアとのなじみ）
     const ground = this.add.graphics();
-    ground.fillStyle(0x1a2808); ground.fillRect(0, groundY, W, H - groundY);
-    ground.fillStyle(0x223a0a, 0.7);
-    for (let gx = 10; gx < W; gx += 18)
-      ground.fillTriangle(gx, groundY, gx-4, groundY+12, gx+4, groundY+12);
-    this.add.rectangle(0, groundY, W, 6, 0x2a5a12).setOrigin(0, 0);
+    ground.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0, 0, 0.55, 0.55);
+    ground.fillRect(0, groundY, W, H - groundY);
   }
 
   // ─── イベントUI（下部ボタン＋吹き出し） ─────────────────────
