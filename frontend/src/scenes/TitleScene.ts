@@ -30,6 +30,13 @@ export class TitleScene extends Phaser.Scene {
      'gale_atk_water','gale_atk_wind','gale_atk_ice'].forEach(key => {
       this.load.image(key, `${key}.jpg`);
     });
+    // 雹攻撃フレーム
+    ['gale_atk_hyou','gale_atk_hyou1','gale_atk_hyou2'].forEach(key => {
+      this.load.image(key, `${key}.jpg`);
+    });
+    // 村人立ち絵
+    this.load.image('man_murabito',   'man_murabito.jpg');
+    this.load.image('woman_murabito', 'woman_murabito.jpg');
     this.load.on('loaderror', (f: Phaser.Loader.File) =>
       console.warn('[TitleScene] load failed:', f.key));
   }
@@ -79,6 +86,8 @@ export class TitleScene extends Phaser.Scene {
     [...WALK_KEYS, ...IDLE_KEYS,
      'gale_cast', 'gale_atk_thunder', 'gale_atk_fire',
      'gale_atk_water', 'gale_atk_wind', 'gale_atk_ice',
+     'gale_atk_hyou', 'gale_atk_hyou1', 'gale_atk_hyou2',
+     'man_murabito', 'woman_murabito',
     ].forEach(key => this.removeBlackBg(key));
 
     this.cameras.main.setBackgroundColor('#0d0820');
@@ -360,7 +369,7 @@ export class TitleScene extends Phaser.Scene {
   private startGame() {
     this.input.keyboard?.removeAllListeners();
     this.cameras.main.fade(700, 0, 0, 0);
-    this.time.delayedCall(700, () => this.scene.start('GameScene'));
+    this.time.delayedCall(700, () => this.scene.start('MapScene'));
   }
 
   update() {

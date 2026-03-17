@@ -10,18 +10,22 @@ const IDLE_KEYS = ['gale_idle','gale_idle1','gale_idle2','gale_idle3'] as const;
 //   fire    → Flame Strike       (gale_atk_fire.png)
 //   water   → Beam Attack        (gale_atk_water.png)
 //   wind    → Ice Swirl Attack A (gale_atk_wind.png)
-type WeatherType = 'thunder' | 'fire' | 'water' | 'wind';
+type WeatherType = 'thunder' | 'fire' | 'water' | 'wind' | 'hail';
+
+// 雹の3フレームキー
+const HAIL_KEYS = ['gale_atk_hyou', 'gale_atk_hyou1', 'gale_atk_hyou2'] as const;
 
 const WEATHER_CONFIG: Record<WeatherType, {
   label: string; emoji: string;
-  spriteKey: string;          // 攻撃ポーズ画像のキー
-  projColor: number;          // 弾の主色
+  spriteKey: string;
+  projColor: number;
   btnColor: number; btnGlow: number;
 }> = {
   thunder: { label:'雷',  emoji:'⚡', spriteKey:'gale_atk_thunder', projColor:0xffff44, btnColor:0x1a2255, btnGlow:0x8888ff },
-  fire:    { label:'炎',  emoji:'🔥', spriteKey:'gale_atk_fire',    projColor:0xff4400, btnColor:0x3a1100, btnGlow:0xff6622 },
+  fire:    { label:'晴れ', emoji:'☀️', spriteKey:'gale_atk_fire',   projColor:0xffee44, btnColor:0x2a2200, btnGlow:0xffcc00 },
   water:   { label:'水',  emoji:'💧', spriteKey:'gale_atk_water',   projColor:0x44ccff, btnColor:0x002244, btnGlow:0x44aaff },
   wind:    { label:'風',  emoji:'🌀', spriteKey:'gale_atk_wind',    projColor:0x44ffaa, btnColor:0x003322, btnGlow:0x44ffaa },
+  hail:    { label:'雹',  emoji:'🌨', spriteKey:'gale_atk_hyou',   projColor:0xaaddff, btnColor:0x001833, btnGlow:0x88ccff },
 };
 
 export class GameScene extends Phaser.Scene {
@@ -38,9 +42,15 @@ export class GameScene extends Phaser.Scene {
   private playerBaseY = 0;
 
   // プレイヤー表示オブジェクト
+  private skyGfx!: Phaser.GameObjects.Graphics;
   private idleSprite!: Phaser.GameObjects.Image;
-  private castImage!: Phaser.GameObjects.Image;                        // Casting Pose
+  private castImage!: Phaser.GameObjects.Image;
   private atkImages: Partial<Record<WeatherType, Phaser.GameObjects.Image>> = {};
+  private hailFrames: (Phaser.GameObjects.Image | undefined)[] = [];
+  private hailTimer?: Phaser.Time.TimerEvent;
+  private hailDisplayW = 0;
+  private hailDisplayH = 0;
+  private currentNodeId = -1;
 
   constructor() { super({ key: 'GameScene' }); }
 
@@ -52,10 +62,14 @@ export class GameScene extends Phaser.Scene {
     ['gale_walk','gale_walk1','gale_walk2','gale_walk3'].forEach(key => { if (!this.textures.exists(key)) this.load.image(key, `${key}.jpg`); });
     // 攻撃ポーズ・単体画像
     ['gale_cast','gale_atk_thunder','gale_atk_fire','gale_atk_water','gale_atk_wind','gale_atk_ice'].forEach(key => { if (!this.textures.exists(key)) this.load.image(key, `${key}.jpg`); });
+    HAIL_KEYS.forEach(key => { if (!this.textures.exists(key)) this.load.image(key, `${key}.jpg`); });
     this.load.on('loaderror', (f: Phaser.Loader.File) => console.warn('[GameScene] load failed:', f.key));
   }
 
-  create() {
+  create(data?: { nodeId?: number }) {
+    this.currentNodeId = data?.nodeId ?? -1;
+    this.slimeHp = 30;
+    this.attackEnabled = true;
     const W = this.scale.width;
     const H = this.scale.height;
     this.slimeX  = W * 0.70;
@@ -75,25 +89,99 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.fadeIn(600);
   }
 
-  // ─── 背景 ──────────────────────────────────────────────────
+  // ─── 背景（2.5D奥行き感） ──────────────────────────────────
   private drawBackground(W: number, H: number) {
-    const sky = this.add.graphics();
-    sky.fillGradientStyle(0x0a1a44, 0x0a1a44, 0x1e4a8a, 0x1e4a8a, 1);
-    sky.fillRect(0, 0, W, H * 0.68);
-    this.add.rectangle(0, H*0.68, W, H*0.32, 0x1a3d0e).setOrigin(0,0);
-    this.add.rectangle(0, H*0.68, W, 8, 0x2a5a1a).setOrigin(0,0);
-    [{x:W*0.15,y:H*0.10,s:1.0},{x:W*0.45,y:H*0.07,s:0.8},{x:W*0.72,y:H*0.14,s:1.2}].forEach(({x,y,s}) => {
-      const c = this.add.graphics();
-      c.fillStyle(0xffffff, 0.55);
-      c.fillEllipse(x,y,110*s,42*s); c.fillEllipse(x-28*s,y+12*s,70*s,32*s); c.fillEllipse(x+28*s,y+12*s,70*s,32*s);
-      this.tweens.add({ targets:c, x:x+18, duration:5000+x*2, yoyo:true, repeat:-1, ease:'Sine.easeInOut' });
+    const GY = H * 0.63; // 地平線
+
+    // ① 空（天候で切り替え可）
+    this.skyGfx = this.add.graphics();
+    this.skyGfx.fillGradientStyle(0x0c1e44, 0x0c1e44, 0x1e5090, 0x1e5090, 1);
+    this.skyGfx.fillRect(0, 0, W, GY);
+
+    // ② 地平線グロー
+    const hGlow = this.add.graphics();
+    hGlow.fillGradientStyle(0x2255aa, 0x2255aa, 0x0c1e44, 0x0c1e44, 0.45);
+    hGlow.fillRect(0, GY - 55, W, 55);
+
+    // ③ 遠景山（薄い・遠近感）
+    const farM = this.add.graphics();
+    farM.fillStyle(0x182e50, 0.42);
+    farM.beginPath(); farM.moveTo(0, GY);
+    [0,90,200,320,430,540,640,720,800].forEach((x,i) => farM.lineTo(x, GY-[0,28,12,38,16,30,8,22,0][i]));
+    farM.lineTo(W, GY); farM.closePath(); farM.fillPath();
+
+    // ④ 中景山（くっきり）
+    const midM = this.add.graphics();
+    midM.fillStyle(0x0f1c3a, 0.88);
+    midM.beginPath();
+    midM.moveTo(0,GY); midM.lineTo(0,GY-72); midM.lineTo(W*0.10,GY-48); midM.lineTo(W*0.20,GY-105);
+    midM.lineTo(W*0.32,GY-60); midM.lineTo(W*0.44,GY-88); midM.lineTo(W*0.53,GY-52);
+    midM.lineTo(W*0.63,GY-98); midM.lineTo(W*0.76,GY-65); midM.lineTo(W*0.88,GY-110);
+    midM.lineTo(W,GY-72); midM.lineTo(W,GY); midM.closePath(); midM.fillPath();
+    // 雪頂
+    midM.fillStyle(0xddeeff, 0.55);
+    [[W*0.20,GY-105,20,26],[W*0.44,GY-88,16,20],[W*0.63,GY-98,18,23],[W*0.88,GY-110,20,28]].forEach(([px,py,tw,th]) => {
+      midM.fillTriangle(px-tw, py+th, px, py-4, px+tw, py+th);
     });
-    const mtn = this.add.graphics();
-    mtn.fillStyle(0x1a2a5a, 0.6);
-    mtn.beginPath();
-    mtn.moveTo(0,H*0.68);mtn.lineTo(0,H*0.38);mtn.lineTo(W*0.12,H*0.22);mtn.lineTo(W*0.25,H*0.40);mtn.lineTo(W*0.38,H*0.18);
-    mtn.lineTo(W*0.52,H*0.35);mtn.lineTo(W*0.65,H*0.25);mtn.lineTo(W*0.78,H*0.42);mtn.lineTo(W*0.90,H*0.28);mtn.lineTo(W,H*0.38);mtn.lineTo(W,H*0.68);
-    mtn.closePath();mtn.fillPath();
+
+    // ⑤ 地面（グラデーション）
+    const ground = this.add.graphics();
+    ground.fillGradientStyle(0x1e5010, 0x1e5010, 0x0e2808, 0x0e2808, 1);
+    ground.fillRect(0, GY, W, H * 0.80 - GY);
+
+    // ⑥ パース透視グリッド（奥行き線）
+    const grid = this.add.graphics();
+    const vanX = W / 2, botY = H * 0.80;
+    grid.lineStyle(1, 0x1e4a12, 0.28);
+    for (let i = 0; i <= 12; i++) {
+      grid.beginPath(); grid.moveTo(vanX, GY); grid.lineTo((i / 12) * W, botY); grid.strokePath();
+    }
+    grid.lineStyle(1, 0x1e4a12, 0.20);
+    for (let j = 1; j <= 5; j++) {
+      const t = j / 5, gy = GY + (botY - GY) * t, hw = W / 2 * t;
+      grid.beginPath(); grid.moveTo(vanX - hw, gy); grid.lineTo(vanX + hw, gy); grid.strokePath();
+    }
+
+    // ⑦ バトルサークル（闘技場）
+    const arena = this.add.graphics();
+    arena.lineStyle(2, 0x3a6a22, 0.40);
+    arena.strokeEllipse(W/2, GY+(botY-GY)*0.65, W*0.56, (botY-GY)*0.46);
+    arena.lineStyle(1, 0x2a5218, 0.22);
+    arena.strokeEllipse(W/2, GY+(botY-GY)*0.65, W*0.38, (botY-GY)*0.28);
+
+    // ⑧ 地平線草ライン
+    this.add.rectangle(0, GY, W, 7, 0x2a5a1a).setOrigin(0, 0);
+
+    // ⑨ 両サイドの木（深度ガイド）
+    const trees = this.add.graphics();
+    ([-18,28,72,114] as number[]).forEach((tx,i) => {
+      const sy=[0.80,0.82,0.78,0.83][i], ty=H*sy, th=(1-sy)*H*2.4;
+      trees.fillStyle(0x082210,0.88); trees.fillTriangle(tx,ty,tx-22,ty+th,tx+22,ty+th);
+      trees.fillStyle(0x0d3018,0.70); trees.fillTriangle(tx,ty-15,tx-15,ty+th*0.55,tx+15,ty+th*0.55);
+    });
+    ([W+18,W-28,W-72,W-114] as number[]).forEach((tx,i) => {
+      const sy=[0.80,0.82,0.78,0.83][i], ty=H*sy, th=(1-sy)*H*2.4;
+      trees.fillStyle(0x082210,0.88); trees.fillTriangle(tx,ty,tx-22,ty+th,tx+22,ty+th);
+      trees.fillStyle(0x0d3018,0.70); trees.fillTriangle(tx,ty-15,tx-15,ty+th*0.55,tx+15,ty+th*0.55);
+    });
+
+    // ⑩ 前景岩・草（最手前・奥行き強調）
+    const fg = this.add.graphics();
+    fg.fillStyle(0x1c1a14, 0.85);
+    fg.fillEllipse(42, H*0.786, 58, 18); fg.fillEllipse(12, H*0.795, 36, 13);
+    fg.fillEllipse(W-42, H*0.786, 58, 18); fg.fillEllipse(W-12, H*0.795, 36, 13);
+    fg.fillStyle(0x0f2808, 0.75);
+    for (let gx = 8; gx < W; gx += 20) {
+      fg.fillTriangle(gx, H*0.783, gx-4, H*0.783+11, gx+4, H*0.783+11);
+    }
+
+    // ⑪ 雲（アニメ）
+    [{x:W*0.14,y:H*0.09,s:1.0},{x:W*0.44,y:H*0.06,s:0.8},{x:W*0.74,y:H*0.13,s:1.2}].forEach(({x,y,s}) => {
+      const c = this.add.graphics();
+      c.fillStyle(0xffffff, 0.48);
+      c.fillEllipse(x,y,110*s,38*s); c.fillEllipse(x-28*s,y+11*s,68*s,28*s); c.fillEllipse(x+28*s,y+11*s,68*s,28*s);
+      this.tweens.add({ targets:c, x:x+16, duration:5000+x*2, yoyo:true, repeat:-1, ease:'Sine.easeInOut' });
+    });
   }
 
   // ─── スライムテクスチャ ─────────────────────────────────────
@@ -153,6 +241,18 @@ export class GameScene extends Phaser.Scene {
       .setScale(SPRITE_SCALE)
       .setVisible(false);
 
+    // ── 雹アニメーションフレーム（3枚・アイドルと同サイズに固定） ──
+    // 雹画像は元解像度が大きいためスケールではなく絶対サイズで統一する
+    this.hailDisplayW = this.idleSprite.displayWidth;
+    this.hailDisplayH = this.idleSprite.displayHeight;
+    this.hailFrames = HAIL_KEYS.map(key => {
+      if (!this.textures.exists(key) || this.textures.get(key).key === '__MISSING') return undefined;
+      return this.add.image(x, y, key)
+        .setOrigin(0.5, 1)
+        .setDisplaySize(this.hailDisplayW, this.hailDisplayH)
+        .setVisible(false);
+    });
+
     // ── 各攻撃ポーズ画像（非表示で配置） ──
     const atkKeys: WeatherType[] = ['thunder', 'fire', 'water', 'wind'];
     atkKeys.forEach(type => {
@@ -203,7 +303,7 @@ export class GameScene extends Phaser.Scene {
     mpBg.fillStyle(0x001133); mpBg.fillRect(68, hudY+50, 120, 10);
     mpBg.fillStyle(0x2244cc); mpBg.fillRect(68, hudY+50, 90, 10);
     this.add.text(68, hudY+42, 'MP', { fontSize:'10px', fontFamily:'monospace', color:'#5588ff' });
-    this.battleLog = this.add.text(W/2, hudY - 18, 'スライムが現れた！天候魔法で攻撃せよ！', {
+    this.battleLog = this.add.text(W/2, hudY - 18, 'スライムが現れた！天候の力で攻撃せよ！', {
       fontSize:'14px', fontFamily:'"Yu Gothic","YuGothic",monospace',
       color:'#ffffff', stroke:'#000', strokeThickness:2, align:'center',
     }).setOrigin(0.5);
@@ -216,7 +316,7 @@ export class GameScene extends Phaser.Scene {
     const pad    = 10;
     const statusW = 200;              // 左のステータス枠の幅
 
-    const types: WeatherType[] = ['thunder', 'fire', 'water', 'wind'];
+    const types: WeatherType[] = ['thunder', 'fire', 'water', 'wind', 'hail'];
     const gap  = 8;
     const btnW = Math.floor((W - statusW - pad * 2 - gap * (types.length - 1)) / types.length);
     const btnH = hudH - pad * 2;
@@ -261,15 +361,18 @@ export class GameScene extends Phaser.Scene {
 
     const cfg = WEATHER_CONFIG[type];
 
-    // ① Casting Pose を一瞬表示
-    this.showSprite('cast');
-    this.battleLog.setText(`${cfg.label}の魔法を詠唱！`);
+    // ① 空背景を天候に合わせて変化させる
+    this.updateSkyForWeather(type);
+    this.spawnWeatherFx(type);
 
-    // ② 0.25秒後に攻撃ポーズに切り替え & 弾発射
-    // 風はキャラなし画像なのでキャストポーズのまま維持
+    // ② Casting Pose を一瞬表示
+    this.showSprite('cast');
+    this.battleLog.setText(`${cfg.label}の天候を呼んだ！`);
+
+    // ③ 0.25秒後に攻撃ポーズに切り替え & 弾発射
     this.time.delayedCall(250, () => {
       if (type !== 'wind') this.showSprite(type);
-      this.battleLog.setText(`${cfg.label}の魔法を放った！`);
+      this.battleLog.setText(`${cfg.label}の力を放った！`);
 
       this.time.delayedCall(180, () => {
         this.launchProjectile(type, cfg.projColor, () => {
@@ -285,18 +388,40 @@ export class GameScene extends Phaser.Scene {
 
   // ─── スプライト切り替え ─────────────────────────────────────
   private showSprite(target: WeatherType | 'idle' | 'cast') {
+    // hailタイマー停止
+    this.hailTimer?.remove();
+    this.hailTimer = undefined;
+
     // 全部非表示
     this.idleSprite.setVisible(false);
     this.castImage.setVisible(false);
     Object.values(this.atkImages).forEach(img => img?.setVisible(false));
+    this.hailFrames.forEach(f => f?.setVisible(false));
 
     if (target === 'idle') {
       this.idleSprite.setVisible(true);
       this.attackEnabled = true;
     } else if (target === 'cast') {
       this.castImage.setVisible(true);
+    } else if (target === 'hail') {
+      // 3フレームをサイクル再生
+      const frames = this.hailFrames.filter(Boolean) as Phaser.GameObjects.Image[];
+      if (frames.length > 0) {
+        frames[0].setVisible(true);
+        let fi = 0;
+        this.hailTimer = this.time.addEvent({
+          delay: 100, repeat: -1,
+          callback: () => {
+            frames.forEach(f => f.setVisible(false));
+            fi = (fi + 1) % frames.length;
+            frames[fi].setVisible(true);
+            frames[fi].setDisplaySize(this.hailDisplayW, this.hailDisplayH);
+          },
+        });
+      } else {
+        this.castImage.setVisible(true);
+      }
     } else {
-      // 攻撃ポーズ画像があれば表示、なければキャスティングポーズで代用
       const img = this.atkImages[target];
       if (img) img.setVisible(true);
       else      this.castImage.setVisible(true);
@@ -310,7 +435,35 @@ export class GameScene extends Phaser.Scene {
     if      (type === 'thunder') this.fxThunder(sx, sy, onHit);
     else if (type === 'fire')    this.fxFire(sx, sy, onHit);
     else if (type === 'water')   this.fxWater(sx, sy, onHit);
+    else if (type === 'hail')    this.fxHail(onHit);
     else                         this.fxWind(sx, sy, color, onHit);
+  }
+
+  // ── 雹 (Hail) ──
+  private fxHail(onHit: () => void) {
+    const count = 9;
+    let done = 0;
+    for (let i = 0; i < count; i++) {
+      const tx = this.slimeX + Phaser.Math.Between(-45, 45);
+      const startY = this.slimeY - 160 + Phaser.Math.Between(-20, 20);
+      const crystal = this.add.rectangle(tx, startY, 5, 13, 0xaaddff);
+      crystal.setAngle(Phaser.Math.Between(-25, 25));
+      this.tweens.add({
+        targets: crystal,
+        y: this.slimeY - 10,
+        alpha: 0.2,
+        duration: 260 + i * 35,
+        delay: i * 55,
+        ease: 'Quad.easeIn',
+        onComplete: () => {
+          crystal.destroy();
+          const flash = this.add.circle(tx, this.slimeY - 10, 10, 0xffffff, 0.85);
+          this.tweens.add({ targets: flash, alpha: 0, scaleX: 2.2, scaleY: 2.2, duration: 140, onComplete: () => flash.destroy() });
+          done++;
+          if (done === count) onHit();
+        },
+      });
+    }
   }
 
   // ── 雷 (Lightning Strike) ──
@@ -337,22 +490,88 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  // ── 炎 (Flame Strike) ──
+  // ── 晴れ (Sunny) ──
   private fxFire(sx: number, sy: number, onHit: () => void) {
-    const ball  = this.add.circle(sx, sy, 10, 0xff4400);
-    const inner = this.add.circle(sx, sy, 6, 0xff8800);
+    const ball  = this.add.circle(sx, sy, 12, 0xffee44);
+    const inner = this.add.circle(sx, sy, 7, 0xffffff);
     this.tweens.add({
       targets:[ball,inner], x:this.slimeX, y:sy, scaleX:2.5, scaleY:2.5,
       duration:280, ease:'Quad.easeIn',
       onComplete: () => {
         ball.destroy(); inner.destroy();
         for (let i = 0; i < 14; i++) {
-          const ep = this.add.circle(this.slimeX, sy, Phaser.Math.Between(4,9), [0xff4400,0xff8800,0xffcc00][i%3]);
+          const ep = this.add.circle(this.slimeX, sy, Phaser.Math.Between(4,9), [0xffee44,0xffffff,0xffcc00][i%3]);
           this.tweens.add({ targets:ep, x:this.slimeX+Phaser.Math.Between(-55,55), y:sy+Phaser.Math.Between(-55,25), alpha:0, duration:450, onComplete:()=>ep.destroy() });
         }
         onHit();
       },
     });
+  }
+
+  // ─── 空の背景を天候に合わせて変化 ──────────────────────────
+  private updateSkyForWeather(type: WeatherType) {
+    const W = this.scale.width, H = this.scale.height;
+    type GradArgs = [number, number, number, number, number];
+    const g: Record<WeatherType, GradArgs> = {
+      thunder: [0x06021a, 0x06021a, 0x0a1030, 0x0a1030, 1],
+      fire:    [0x2277cc, 0x2277cc, 0x88aadd, 0x88aadd, 1],  // 晴れ: 明るい青空
+      water:   [0x040c1a, 0x040c1a, 0x0a1a2e, 0x0a1a2e, 1],  // 雨: 暗い青灰
+      wind:    [0x182230, 0x182230, 0x2a3a55, 0x2a3a55, 1],  // 風: 曇り青灰
+      hail:    [0x020408, 0x020408, 0x04080e, 0x04080e, 1],  // 雹: 吹雪
+    };
+    const [tl, tr, bl, br, a] = g[type];
+    this.skyGfx.clear();
+    this.skyGfx.fillGradientStyle(tl, tr, bl, br, a);
+    this.skyGfx.fillRect(0, 0, W, H * 0.68);
+  }
+
+  // ─── 天候エフェクト（一時的な空演出） ─────────────────────
+  private spawnWeatherFx(type: WeatherType) {
+    const W = this.scale.width, H = this.scale.height * 0.68;
+
+    if (type === 'water') {
+      for (let i = 0; i < 35; i++) {
+        const x = Phaser.Math.Between(0, W);
+        const y = Phaser.Math.Between(-20, H * 0.5);
+        const drop = this.add.rectangle(x, y, 1, 9, 0x88ccff, 0.7);
+        this.tweens.add({ targets: drop, y: y + H, alpha: 0, duration: Phaser.Math.Between(500, 900), delay: i * 25, onComplete: () => drop.destroy() });
+      }
+    } else if (type === 'hail') {
+      for (let i = 0; i < 28; i++) {
+        const x = Phaser.Math.Between(0, W);
+        const y = Phaser.Math.Between(-20, H * 0.3);
+        const shard = this.add.rectangle(x, y, 3, 9, 0xddeeff, 0.85);
+        shard.setAngle(Phaser.Math.Between(-20, 20));
+        this.tweens.add({ targets: shard, y: y + H, x: x + 30, alpha: 0, duration: Phaser.Math.Between(380, 650), delay: i * 35, onComplete: () => shard.destroy() });
+      }
+    } else if (type === 'thunder') {
+      const flash = this.add.rectangle(W / 2, H * 0.4, W, H * 0.8, 0x8888ff, 0);
+      this.tweens.add({ targets: flash, alpha: 0.28, duration: 70, yoyo: true, repeat: 2, onComplete: () => flash.destroy() });
+      const g = this.add.graphics();
+      g.lineStyle(3, 0xffffaa, 0.9);
+      const lx = Phaser.Math.Between(W * 0.25, W * 0.75);
+      g.beginPath(); g.moveTo(lx, 0); g.lineTo(lx - 18, H * 0.3); g.lineTo(lx + 10, H * 0.3); g.lineTo(lx - 12, H * 0.62); g.strokePath();
+      this.tweens.add({ targets: g, alpha: 0, duration: 400, delay: 120, onComplete: () => g.destroy() });
+    } else if (type === 'wind') {
+      for (let i = 0; i < 14; i++) {
+        const y = Phaser.Math.Between(10, H - 10);
+        const len = 60 + Phaser.Math.Between(0, 70);
+        const streak = this.add.rectangle(-len / 2, y, len, 2, 0xcceecc, 0.5);
+        this.tweens.add({ targets: streak, x: W + len, alpha: 0, duration: Phaser.Math.Between(280, 560), delay: i * 55, onComplete: () => streak.destroy() });
+      }
+    } else if (type === 'fire') {
+      // 晴れ: 太陽光線
+      const sunX = W * 0.80, sunY = H * 0.18;
+      for (let i = 0; i < 9; i++) {
+        const angle = (i / 9) * Math.PI * 2;
+        const len = 55 + Phaser.Math.Between(0, 35);
+        const ray = this.add.rectangle(sunX + Math.cos(angle) * 20, sunY + Math.sin(angle) * 20, len, 3, 0xffee88, 0.65);
+        ray.setAngle(Phaser.Math.RadToDeg(angle));
+        this.tweens.add({ targets: ray, scaleX: 1.6, alpha: 0, duration: 650, delay: i * 45, onComplete: () => ray.destroy() });
+      }
+      const sun = this.add.circle(sunX, sunY, 26, 0xffee44, 0.65);
+      this.tweens.add({ targets: sun, scaleX: 2.0, scaleY: 2.0, alpha: 0, duration: 800, onComplete: () => sun.destroy() });
+    }
   }
 
   // ── 水 (Beam Attack) ──
@@ -435,7 +654,10 @@ export class GameScene extends Phaser.Scene {
   private onSlimeDefeated() {
     this.slimeBounce.stop();
     this.tweens.add({ targets:this.slimeSprite, alpha:0, scaleY:0, y:this.slimeY+30, duration:500,
-      onComplete: () => { this.battleLog.setText('スライムを倒した！\n\n（次のエリアへ…実装中）'); }
+      onComplete: () => {
+        this.battleLog.setText('スライムを倒した！');
+        this.time.delayedCall(600, () => this.showMapReturnButton());
+      }
     });
     this.time.delayedCall(200, () => {
       for (let i = 0; i < 14; i++) {
@@ -443,6 +665,27 @@ export class GameScene extends Phaser.Scene {
         const p = this.add.circle(this.slimeX+Phaser.Math.Between(-30,30), this.slimeY+Phaser.Math.Between(-30,30), Phaser.Math.Between(3,7), colors[i%colors.length]);
         this.tweens.add({ targets:p, x:p.x+Phaser.Math.Between(-90,90), y:p.y+Phaser.Math.Between(-110,20), alpha:0, duration:Phaser.Math.Between(600,1100), onComplete:()=>p.destroy() });
       }
+    });
+  }
+
+  private showMapReturnButton() {
+    const W = this.scale.width, H = this.scale.height;
+    const btn = this.add.text(W/2, H*0.45, '▶  マップへ戻る', {
+      fontSize:'26px', fontFamily:'monospace', color:'#aaddff',
+      stroke:'#001144', strokeThickness:2,
+      backgroundColor:'#0d1a44', padding:{ x:22, y:12 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor:true });
+    btn.on('pointerover', () => btn.setColor('#ffffff'));
+    btn.on('pointerout',  () => btn.setColor('#aaddff'));
+    btn.on('pointerdown', () => {
+      // 完了ノードを registry に記録
+      const reg = this.game.registry;
+      const done: number[] = reg.get('completedNodes') ?? [];
+      if (this.currentNodeId >= 0 && !done.includes(this.currentNodeId)) done.push(this.currentNodeId);
+      reg.set('completedNodes', done);
+      reg.set('playerNodeId', this.currentNodeId);
+      this.cameras.main.fade(500, 0, 0, 0);
+      this.time.delayedCall(500, () => this.scene.start('MapScene'));
     });
   }
 
