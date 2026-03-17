@@ -1,9 +1,12 @@
 import { useState, useRef } from 'react'
+import reactLogo from './assets/react.svg'
+import viteLogo from '/vite.svg'
 import Meyda from 'meyda'
+import HPHeart from "./components/HPHeart"
 import type { MeydaAnalyzer } from 'meyda/dist/node/esm/meyda-wa'
 import type { MeydaFeaturesObject } from 'meyda/dist/node/esm/main'
 import { useWeatherStore } from './store/weatherStore'
-import "./App.css"
+import './App.css'
 import WeatherIcon from "./component/wether_icon"
 
 type WeatherType = "sunny" | "rain" | "thunder" | "wind" | "hail"
@@ -22,6 +25,12 @@ type FeatureFrame = {
 }
 
 function App() {
+  const maxHP = 3
+  const [hp, setHP] = useState(3)
+  const dealDamage = () => setHP((prev) => Math.max(0, prev - 1))
+  const heal = () => setHP((prev) => Math.min(maxHP, prev + 1))
+
+  const [count, setCount] = useState(0)
   const [micStatus, setMicStatus] = useState<MicStatus>('idle')
   const streamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -107,6 +116,28 @@ function App() {
         <WeatherIcon weather={(weather ?? "sunny") as WeatherType} />
       </div>
 
+      <div
+        style={{
+          position: "fixed",
+          left: 16,
+          bottom: 16,
+          display: "inline-flex",
+          alignItems: "center",
+          padding: "4px 8px",
+          borderRadius: 10,
+          background: "rgba(255,255,255,0.85)",
+          border: "1px solid #ddd",
+          boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+        }}
+      >
+        <HPHeart currentHP={hp} maxHP={maxHP} hearts={3} />
+      </div>
+
+      <div style={{ position: "fixed", left: 16, bottom: 88, display: "flex", gap: "8px" }}>
+        <button onClick={dealDamage}>ダメージ -1</button>
+        <button onClick={heal}>回復 +1</button>
+      </div>
+
       <div style={{ position: "fixed", top: 16, right: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
         {weatherOptions.map((w) => (
           <button
@@ -125,6 +156,24 @@ function App() {
             {w}
           </button>
         ))}
+      </div>
+
+      <div>
+        <a href="https://vite.dev" target="_blank">
+          <img src={viteLogo} className="logo" alt="Vite logo" />
+        </a>
+        <a href="https://react.dev" target="_blank">
+          <img src={reactLogo} className="logo react" alt="React logo" />
+        </a>
+      </div>
+      <h1>Vite + React</h1>
+      <div className="card">
+        <button onClick={() => setCount((count) => count + 1)}>
+          count is {count}
+        </button>
+        <p>
+          Edit <code>src/App.tsx</code> and save to test HMR
+        </p>
       </div>
 
       <h1>マイクアクセス</h1>
