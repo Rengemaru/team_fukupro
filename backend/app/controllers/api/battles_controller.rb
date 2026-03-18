@@ -1,5 +1,7 @@
 module Api
   class BattlesController < ApplicationController
+    ALL_WEATHERS = %w[thunder sunny rain wind hail].freeze
+
     # POST /api/battles
     def create
       session = GameSession.find_by(session_token: params[:session_token])
@@ -10,10 +12,19 @@ module Api
         return render json: { error: "invalid node" }, status: :unprocessable_entity
       end
 
+      weather = normalized_weather
+      unless weather
+        return render json: { error: "invalid weather" }, status: :unprocessable_entity
+      end
+
+      unless spell_owned?(session, weather)
+        return render json: { error: "spell not unlocked" }, status: :unprocessable_entity
+      end
+
       enemy = Enemy.find(node["enemy_id"])
 
       result = BattleLogic.call(
-        weather:          params[:weather],
+        weather:          weather,
         enemy:            enemy,
         enemy_current_hp: node["current_hp"].to_i,
         player_hp:        session.player_hp,
@@ -27,8 +38,6 @@ module Api
     end
 
     private
-
-    ALL_WEATHERS = %w[thunder sunny rain wind hail].freeze
 
     def update_session(session, node, result)
       updated_nodes = session.map_nodes.map do |n|
@@ -56,6 +65,15 @@ module Api
         finished:      result[:battle_result] == "game_over",
         player_spells: new_spell ? ((session.player_spells || []) + [ new_spell ]) : session.player_spells
       )
+    end
+
+    def normalized_weather
+      weather = params[:weather].to_s
+      ALL_WEATHERS.include?(weather) ? weather : nil
+    end
+
+    def spell_owned?(session, weather)
+      Array(session.player_spells).include?(weather)
     end
   end
 end

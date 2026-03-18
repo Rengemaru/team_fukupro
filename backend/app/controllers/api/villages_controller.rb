@@ -1,5 +1,7 @@
 module Api
   class VillagesController < ApplicationController
+    ALL_WEATHERS = %w[thunder sunny rain wind hail].freeze
+
     # POST /api/villages
     def create
       session = GameSession.find_by(session_token: params[:session_token])
@@ -10,9 +12,18 @@ module Api
         return render json: { error: "invalid node" }, status: :unprocessable_entity
       end
 
+      weather = normalized_weather
+      unless weather
+        return render json: { error: "invalid weather" }, status: :unprocessable_entity
+      end
+
+      unless spell_owned?(session, weather)
+        return render json: { error: "spell not unlocked" }, status: :unprocessable_entity
+      end
+
       result = VillageEventService.call(
         village_event: node["village_event"],
-        weather:       params[:weather],
+        weather:       weather,
         player_hp:     session.player_hp,
         player_max_hp: session.player_max_hp
       )
@@ -38,6 +49,15 @@ module Api
         player_hp:  result[:player_current_hp],
         finished:   result[:player_current_hp] <= 0
       )
+    end
+
+    def normalized_weather
+      weather = params[:weather].to_s
+      ALL_WEATHERS.include?(weather) ? weather : nil
+    end
+
+    def spell_owned?(session, weather)
+      Array(session.player_spells).include?(weather)
     end
   end
 end

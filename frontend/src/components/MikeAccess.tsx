@@ -3,6 +3,7 @@ import Meyda from 'meyda'
 import type { MeydaAnalyzer } from 'meyda/dist/node/esm/meyda-wa'
 import type { MeydaFeaturesObject } from 'meyda/dist/node/esm/main'
 import { useWeatherStore } from '../store/weatherStore'
+import { useGameStore } from '../store/gameStore'
 
 const RECORDING_DURATION = 1 // 秒
 const WAVEFORM_LENGTH = 120
@@ -101,13 +102,15 @@ export default function MikeAccess() {
     setMicStatus('processing')
 
     try {
+      const sessionToken = localStorage.getItem('session_token')
       const res = await fetch('/api/weather', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frames }),
+        body: JSON.stringify({ frames, session_token: sessionToken }),
       })
       const data = await res.json()
-      if (data.weather) {
+      const ownedSpells = useGameStore.getState().playerSpells
+      if (data.weather && ownedSpells.includes(data.weather)) {
         setWeather(data.weather)
       }
     } finally {
