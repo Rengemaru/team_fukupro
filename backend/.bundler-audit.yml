@@ -1,0 +1,5 @@
+ignore:
+  # Trix (Action Text) の XSS 脆弱性
+  # このプロジェクトは Rails API モードで Action Text / Trix を使用していないため影響なし
+  # 対応する Rails バージョンがリリースされ次第、rails gem をアップデートして解除する
+  - GHSA-qmpg-8xg6-ph5q
