@@ -1,9 +1,9 @@
 module Constants
   module Weather
-    SUNNY        = "sunny"
-    RAIN         = "rain"
+    SUNNY        = "fire"
+    RAIN         = "water"
     WIND         = "wind"
-    THUNDERSTORM = "thunderstorm"
+    THUNDERSTORM = "thunder"
     HAIL         = "hail"
 
     ALL = [ SUNNY, RAIN, WIND, THUNDERSTORM, HAIL ].freeze

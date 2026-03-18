@@ -220,8 +220,31 @@ export class MapScene extends Phaser.Scene {
   private async onNodeClick(node: MapNode) {
     const token = localStorage.getItem('session_token');
     const store = useGameStore.getState();
-    const completedNodes = [...store.completedNodes, node.id];
 
+    if (node.type === 'enemy') {
+      // enemy: バトル勝利まで completed にしない
+      await fetch(`/api/sessions/${token}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player_node_id: node.id,
+          completed_nodes: store.completedNodes,
+        }),
+      });
+      store.setPlayerNodeId(node.id);
+      this.cameras.main.fade(500, 0, 0, 0);
+      this.time.delayedCall(500, () => {
+        this.scene.start('GameScene', {
+          nodeId:    node.id,
+          enemyId:   node.enemy_id,
+          enemyName: node.enemy_name,
+          enemyHp:   node.current_hp,
+        });
+      });
+      return;
+    }
+
+    const completedNodes = [...store.completedNodes, node.id];
     await fetch(`/api/sessions/${token}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -240,10 +263,6 @@ export class MapScene extends Phaser.Scene {
       localStorage.removeItem('session_token');
       store.reset();
       this.time.delayedCall(500, () => this.scene.start('ClearScene'));
-    } else if (node.type === 'enemy') {
-      this.time.delayedCall(500, () => {
-        this.scene.start('GameScene', { nodeId: node.id });
-      });
     } else {
       const villagerTypes = ['man', 'woman', 'beast_attack', 'sailing_ship', 'drought', 'heavy_rain'];
       const villagerType = villagerTypes[node.id % villagerTypes.length];
