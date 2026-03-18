@@ -36,7 +36,7 @@ export class GameOverScene extends Phaser.Scene {
     }).setOrigin(0.5).setAlpha(0);
 
     // サブテキスト
-    const sub = this.add.text(W / 2, H * 0.48, '力尽きてしまった…', {
+    const sub = this.add.text(W / 2, H * 0.42, '力尽きてしまった…', {
       fontSize: '22px',
       fontFamily: '"Georgia","Times New Roman","Yu Mincho","YuMincho",serif',
       color: '#d4b896',
@@ -45,8 +45,20 @@ export class GameOverScene extends Phaser.Scene {
       shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 6, fill: true },
     }).setOrigin(0.5).setAlpha(0);
 
+    // 最終スコア
+    const finalScore = usePlayerStore.getState().score;
+    const scoreLabel = this.add.text(W / 2, H * 0.52, 'FINAL SCORE', {
+      fontSize: '15px', fontFamily: 'monospace',
+      color: '#c8a86a', stroke: '#1a0a00', strokeThickness: 3,
+    }).setOrigin(0.5).setAlpha(0);
+    const scoreVal = this.add.text(W / 2, H * 0.575, `${finalScore}`, {
+      fontSize: '42px', fontFamily: '"Georgia","Times New Roman",serif',
+      color: '#e8c97a', stroke: '#3a1a00', strokeThickness: 6,
+      shadow: { offsetX: 2, offsetY: 2, color: '#000', blur: 6, fill: true },
+    }).setOrigin(0.5).setAlpha(0);
+
     // もう一度遊ぶボタン
-    const retryBtn = this.add.text(W / 2, H * 0.60, '◆  もう一度遊ぶ  ◆', {
+    const retryBtn = this.add.text(W / 2, H * 0.70, '◆  もう一度遊ぶ  ◆', {
       fontSize: '24px',
       fontFamily: '"Georgia","Times New Roman",serif',
       color: '#97d4a8',
@@ -79,7 +91,7 @@ export class GameOverScene extends Phaser.Scene {
     });
 
     // タイトルへ戻るボタン
-    const btn = this.add.text(W / 2, H * 0.74, '◆  タイトルへ戻る  ◆', {
+    const btn = this.add.text(W / 2, H * 0.83, '◆  タイトルへ戻る  ◆', {
       fontSize: '24px',
       fontFamily: '"Georgia","Times New Roman",serif',
       color: '#e8c97a',
@@ -101,10 +113,12 @@ export class GameOverScene extends Phaser.Scene {
 
     // フェードイン
     this.cameras.main.fadeIn(400);
-    this.tweens.add({ targets: title,    alpha: 1, duration: 600, ease: 'Power2' });
-    this.tweens.add({ targets: sub,      alpha: 1, duration: 600, delay: 400,  ease: 'Power2' });
-    this.tweens.add({ targets: retryBtn, alpha: 1, duration: 600, delay: 800,  ease: 'Power2' });
-    this.tweens.add({ targets: btn,      alpha: 1, duration: 600, delay: 1000, ease: 'Power2' });
+    this.tweens.add({ targets: title,      alpha: 1, duration: 600, ease: 'Power2' });
+    this.tweens.add({ targets: sub,        alpha: 1, duration: 600, delay: 400,  ease: 'Power2' });
+    this.tweens.add({ targets: scoreLabel, alpha: 1, duration: 500, delay: 700,  ease: 'Power2' });
+    this.tweens.add({ targets: scoreVal,   alpha: 1, duration: 700, delay: 850,  ease: 'Back.easeOut' });
+    this.tweens.add({ targets: retryBtn,   alpha: 1, duration: 600, delay: 1200, ease: 'Power2' });
+    this.tweens.add({ targets: btn,        alpha: 1, duration: 600, delay: 1400, ease: 'Power2' });
 
     // GAME OVER の点滅
     this.tweens.add({

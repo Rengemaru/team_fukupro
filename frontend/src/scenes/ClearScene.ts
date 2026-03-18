@@ -68,7 +68,20 @@ export class ClearScene extends Phaser.Scene {
       fontSize: '14px', fontFamily: 'monospace', color: '#ffaa44',
     }).setOrigin(0.5).setAlpha(0);
 
-    // ⑥ タイトルへ戻るボタン
+    // ⑥ 最終スコア
+    const finalScore = usePlayerStore.getState().score;
+    const scoreLabelY = titleY + 155;
+    const scoreLabel = this.add.text(W / 2, scoreLabelY, 'FINAL SCORE', {
+      fontSize: '16px', fontFamily: 'monospace', color: '#ffcc88',
+      stroke: '#220800', strokeThickness: 3,
+    }).setOrigin(0.5).setAlpha(0);
+    const scoreVal = this.add.text(W / 2, scoreLabelY + 30, `${finalScore}`, {
+      fontSize: '44px', fontFamily: '"Palatino Linotype","Palatino",Georgia,serif',
+      color: '#ffee44', stroke: '#440000', strokeThickness: 5,
+      shadow: { offsetX: 2, offsetY: 2, color: '#000', blur: 6, fill: true },
+    }).setOrigin(0.5).setAlpha(0);
+
+    // ⑦ タイトルへ戻るボタン
     const btnY = H * 0.88;
     const btnGlow = this.add.rectangle(W / 2, btnY, 304, 64, 0xff7700, 0.25).setAlpha(0);
     const btn     = this.add.rectangle(W / 2, btnY, 288, 56, 0x120600)
@@ -128,8 +141,14 @@ export class ClearScene extends Phaser.Scene {
       });
     });
 
-    // 2.6秒後: ボタンがフワッと出る
-    this.time.delayedCall(2600, () => {
+    // 2.4秒後: スコアが出る
+    this.time.delayedCall(2400, () => {
+      this.tweens.add({ targets: scoreLabel, alpha: 0.85, duration: 500, ease: 'Sine.easeOut' });
+      this.tweens.add({ targets: scoreVal,   alpha: 1,    duration: 700, delay: 150, ease: 'Back.easeOut' });
+    });
+
+    // 3.0秒後: ボタンがフワッと出る
+    this.time.delayedCall(3000, () => {
       this.tweens.add({
         targets: [btn, label, btnGlow],
         alpha: 1, y: { from: btnY + 15, to: btnY },
