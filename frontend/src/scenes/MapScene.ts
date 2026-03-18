@@ -63,11 +63,7 @@ export class MapScene extends Phaser.Scene {
     store.setPlayerNodeId(data.player_node_id);
     store.setCompletedNodes(data.completed_nodes);
     if (data.player_spells) store.setPlayerSpells(data.player_spells);
-<<<<<<< HEAD
     if (data.player_hp != null) usePlayerStore.getState().setHp(data.player_hp);
-=======
-    if (typeof data.player_hp === 'number') usePlayerStore.getState().setHp(data.player_hp);
->>>>>>> 1fba73e (UI)
   }
 
   // ─── 実描画 ───────────────────────────────────────────────
