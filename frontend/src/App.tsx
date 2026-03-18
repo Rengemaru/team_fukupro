@@ -18,6 +18,7 @@ function App() {
     : null
 
   return (
+<<<<<<< HEAD
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#0d0820' }}>
       {/* Phaser ゲームキャンバス */}
       <PhaserGame />
@@ -41,6 +42,29 @@ function App() {
           <MikeAccess />
         </div>
       </div>
+=======
+    <div className="mic-ui">
+      {micStatus === 'idle' && (
+        <button className="mic-btn mic-btn--idle" onClick={requestMic} title="マイクを有効にする">
+          🎙️
+        </button>
+      )}
+      {micStatus === 'active' && (
+        <button className="mic-btn mic-btn--active" onClick={stopMic} title="録音中 / クリックで停止">
+          🔴
+        </button>
+      )}
+      {micStatus === 'denied' && (
+        <button className="mic-btn mic-btn--error" onClick={() => setMicStatus('idle')} title="マイクが拒否されました。クリックして再試行">
+          🚫
+        </button>
+      )}
+      {micStatus === 'error' && (
+        <button className="mic-btn mic-btn--error" onClick={() => setMicStatus('idle')} title="エラーが発生しました。クリックして再試行">
+          ⚠️
+        </button>
+      )}
+>>>>>>> 985928b (マイクUI)
     </div>
   )
 }

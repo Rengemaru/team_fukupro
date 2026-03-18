@@ -36,3 +36,33 @@ body,
 .error-box button {
   margin-top: 0.5em;
 }
+
+.mic-ui {
+  display: inline-block;
+}
+
+.mic-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 2rem;
+  line-height: 1;
+  padding: 0.3em;
+  border-radius: 50%;
+  transition: transform 0.15s, opacity 0.15s;
+  opacity: 0.85;
+}
+
+.mic-btn:hover {
+  transform: scale(1.15);
+  opacity: 1;
+}
+
+.mic-btn--active {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.2); }
+}
