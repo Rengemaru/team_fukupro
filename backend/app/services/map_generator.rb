@@ -184,6 +184,7 @@ class MapGenerator
   def assign_types(nodes)
     goal_id = nodes.last[:id]
 
+    # タイプだけ先に決定
     nodes.each do |node|
       case node[:id]
       when 0
@@ -195,13 +196,20 @@ class MapGenerator
           node[:type]          = ::Constants::MapNode::VILLAGER
           node[:village_event] = MAP_CONSTANTS[:village_event_types].sample
         else
-          enemy = Enemy.order("RANDOM()").first
-          node[:type]       = ::Constants::MapNode::ENEMY
-          node[:enemy_id]   = enemy.id
-          node[:enemy_name] = enemy.name
-          node[:current_hp] = enemy.max_hp
+          node[:type] = ::Constants::MapNode::ENEMY
         end
       end
+    end
+
+    # 敵ノードにすべての敵をシャッフルして割り当て（全種類が確実に登場）
+    enemy_nodes = nodes.select { |n| n[:type] == ::Constants::MapNode::ENEMY }
+    enemies     = Enemy.all.to_a.shuffle
+
+    enemy_nodes.each_with_index do |node, i|
+      enemy             = enemies[i % enemies.size]
+      node[:enemy_id]   = enemy.id
+      node[:enemy_name] = enemy.name
+      node[:current_hp] = enemy.max_hp
     end
   end
 end
