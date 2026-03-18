@@ -245,7 +245,8 @@ export class MapScene extends Phaser.Scene {
         this.scene.start('GameScene', { nodeId: node.id });
       });
     } else {
-      const villagerType = node.id % 2 === 0 ? 'man' : 'woman';
+      const villagerTypes = ['man', 'woman', 'beast_attack', 'sailing_ship'];
+      const villagerType = villagerTypes[node.id % villagerTypes.length];
       this.time.delayedCall(500, () => {
         this.scene.start('VillagerScene', { nodeId: node.id, villagerType });
       });
