@@ -393,6 +393,15 @@ export class GameScene extends Phaser.Scene {
 
     // Zustand の dealDamage でハートを1つ減らす
     usePlayerStore.getState().dealDamage();
+
+    // HP ゼロなら GameOver シーンへ遷移
+    if (usePlayerStore.getState().hp <= 0) {
+      this.attackEnabled = false;
+      this.time.delayedCall(600, () => {
+        this.cameras.main.fade(500, 0, 0, 0);
+        this.time.delayedCall(500, () => this.scene.start('GameOverScene'));
+      });
+    }
   }
 
   private showSprite(target: WeatherType | 'idle' | 'cast') {

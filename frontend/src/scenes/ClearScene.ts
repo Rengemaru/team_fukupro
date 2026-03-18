@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { usePlayerStore } from '../store/playerStore';
 
 export class ClearScene extends Phaser.Scene {
   constructor() { super({ key: 'ClearScene' }); }
@@ -83,6 +84,8 @@ export class ClearScene extends Phaser.Scene {
       this.game.registry.set('mapNodes',       null);
       this.game.registry.set('playerNodeId',   0);
       this.game.registry.set('completedNodes', []);
+      // HP リセット
+      usePlayerStore.getState().reset();
       this.cameras.main.fade(700, 0, 0, 0);
       this.time.delayedCall(700, () => this.scene.start('TitleScene'));
     };
