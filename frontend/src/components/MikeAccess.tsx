@@ -179,45 +179,6 @@ export default function MikeAccess() {
   }
 
   return (
-    <>
-      <h1>マイクアクセス</h1>
-      <div className="card">
-        {micStatus === 'idle' && (
-          <button onClick={requestMic}>録音開始（1秒）</button>
-        )}
-        {micStatus === 'recording' && (
-          <>
-            <p>録音中... あと {countdown} 秒</p>
-            <canvas
-              ref={canvasRef}
-              width={200}
-              height={60}
-              style={{ display: 'block', background: '#1a1a2e', borderRadius: 6, margin: '6px 0' }}
-            />
-            <p style={{ margin: '2px 0', fontSize: '0.85em', color: '#aaa' }}>
-              {db.toFixed(1)} dB
-            </p>
-          </>
-        )}
-        {micStatus === 'processing' && (
-          <p>天候を分析中...</p>
-        )}
-        {micStatus === 'denied' && (
-          <div className="error-box">
-            <p>マイクへのアクセスが拒否されました</p>
-            <p>ブラウザのアドレスバー横にある鍵アイコンをクリックし、マイクを「許可」に変更してからページを再読み込みしてください。</p>
-            <button onClick={() => setMicStatus('idle')}>再試行</button>
-          </div>
-        )}
-        {micStatus === 'error' && (
-          <div className="error-box">
-            <p>マイクへのアクセス中にエラーが発生しました。</p>
-            <p>マイクが接続されているか確認してください。</p>
-            <button onClick={() => setMicStatus('idle')}>再試行</button>
-          </div>
-        )}
-      </div>
-    </>
     <div className="mic-ui">
       {micStatus === 'idle' && (
         <button className="mic-btn mic-btn--idle" onClick={requestMic} title="クリックして録音開始">
@@ -225,10 +186,21 @@ export default function MikeAccess() {
         </button>
       )}
       {micStatus === 'recording' && (
-        <button className="mic-btn mic-btn--active" onClick={finishRecording} title={`録音中 / あと ${countdown} 秒`}>
-          <img src="/stop.png" alt="停止" className="mic-icon" />
-          <span className="mic-countdown">{countdown}</span>
-        </button>
+        <>
+          <button className="mic-btn mic-btn--active" onClick={finishRecording} title={`録音中 / あと ${countdown} 秒`}>
+            <img src="/stop.png" alt="停止" className="mic-icon" />
+            <span className="mic-countdown">{countdown}</span>
+          </button>
+          <canvas
+            ref={canvasRef}
+            width={200}
+            height={60}
+            style={{ display: 'block', background: '#1a1a2e', borderRadius: 6, margin: '6px 0' }}
+          />
+          <p style={{ margin: '2px 0', fontSize: '0.85em', color: '#aaa' }}>
+            {db.toFixed(1)} dB
+          </p>
+        </>
       )}
       {micStatus === 'processing' && (
         <span className="mic-btn mic-btn--processing" title="天候を分析中...">
