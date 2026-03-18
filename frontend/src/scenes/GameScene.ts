@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { usePlayerStore } from '../store/playerStore';
+import { useSceneStore } from '../store/sceneStore';
 import { type EnemyType, ENEMY_TYPES, ENEMY_CONFIG, ENEMY_ID_TO_TYPE } from '../constants/enemies';
 import { useGameStore } from '../store/gameStore';
 import { apiClient } from '../api/apiClient';
@@ -73,6 +74,8 @@ export class GameScene extends Phaser.Scene {
 
   shutdown() {
     this.game.events.off('weatherChanged', undefined, this);
+    useSceneStore.getState().setCurrentScene('');
+    useSceneStore.getState().setMikeVisible(false);
   }
 
   preload() {
@@ -115,10 +118,23 @@ export class GameScene extends Phaser.Scene {
     this.createPlayer(this.playerX, this.playerBaseY);
     this.createEnemy(this.slimeX, this.slimeY);
     this.createHUD(W, H);
-    this.updatePlayerHpDisplay();
+
+    // セッションのHPをバックエンドから取得してフロントエンドに同期
+    const token = localStorage.getItem('session_token') ?? '';
+    if (token) {
+      apiClient.getSession(token).then(session => {
+        if (typeof session.player_hp === 'number') {
+          usePlayerStore.getState().setHp(session.player_hp);
+          this.updatePlayerHpDisplay();
+        }
+      }).catch(() => {});
+    }
+
     this.createWeatherButtons(W, H);
     this.createBackButton(W);
 
+    useSceneStore.getState().setCurrentScene('GameScene');
+    useSceneStore.getState().setMikeVisible(true);
     this.cameras.main.fadeIn(600);
 
     this.game.events.on('weatherChanged', (apiWeather: string) => {
@@ -271,7 +287,12 @@ export class GameScene extends Phaser.Scene {
     fi.fillStyle(0xe0e8ff); fi.fillRect(22, hudY+14, 28, 10);
     fi.lineStyle(2, 0x4488ff); fi.strokeRoundedRect(12, hudY+10, 48, 48, 4);
     this.add.text(68, hudY+12, 'Gale', { fontSize:'14px', fontFamily:'monospace', color:'#aaddff' });
-    this.playerHpText = this.add.text(68, hudY+30, '♥ ♥ ♥ ♥ ♥', { fontSize:'18px', fontFamily:'monospace', color:'#ee2222' });
+    this.playerHpText = this.add.text(
+      this.playerX,
+      this.playerBaseY - 230,
+      '♥ ♥ ♥ ♥ ♥',
+      { fontSize:'22px', fontFamily:'monospace', color:'#ee2222', stroke:'#000', strokeThickness:3 }
+    ).setOrigin(0.5);
     const mpBg = this.add.graphics();
     mpBg.fillStyle(0x001133); mpBg.fillRect(68, hudY+50, 120, 10);
     mpBg.fillStyle(0x2244cc); mpBg.fillRect(68, hudY+50, 90, 10);
@@ -394,8 +415,8 @@ export class GameScene extends Phaser.Scene {
           this.time.delayedCall(400, () => {
             this.slimeCounterAttack(
               res.enemy_attack.result === 'miss',
-              res.player_current_hp,
               res.battle_result === 'game_over',
+              res.player_current_hp,
             );
           });
         });
@@ -407,7 +428,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ─── スライム反撃処理 ──────────────────────────────────────
-  private slimeCounterAttack(isMiss = false, playerCurrentHp?: number, isGameOver = false) {
+  private slimeCounterAttack(isMiss = false, isGameOver = false, playerCurrentHp?: number) {
     const enemyName = ENEMY_CONFIG[this.currentEnemyType].name;
 
     // スライムが左に突進するアニメ
@@ -435,10 +456,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     // プレイヤーHPを更新して表示に反映
-    if (playerCurrentHp !== undefined) {
-      usePlayerStore.getState().setHp(playerCurrentHp);
-    } else {
-      usePlayerStore.getState().dealDamage();
+    if (!isMiss) {
+      if (playerCurrentHp !== undefined) {
+        usePlayerStore.getState().setHp(playerCurrentHp);
+      } else {
+        usePlayerStore.getState().dealDamage();
+      }
     }
     this.updatePlayerHpDisplay();
 
@@ -446,6 +469,7 @@ export class GameScene extends Phaser.Scene {
     const hpAfter = playerCurrentHp ?? usePlayerStore.getState().hp;
     if (isGameOver || hpAfter <= 0) {
       this.attackEnabled = false;
+      useSceneStore.getState().setMikeVisible(false);
       this.time.delayedCall(600, () => {
         localStorage.removeItem('session_token');
         usePlayerStore.getState().reset();
@@ -694,6 +718,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onSlimeDefeated() {
+    useSceneStore.getState().setMikeVisible(false);
     const enemyName = ENEMY_CONFIG[this.currentEnemyType].name;
     this.enemyFrameTimer?.remove();
     this.slimeBounce.stop();
@@ -830,6 +855,8 @@ export class GameScene extends Phaser.Scene {
     back.on('pointerover', () => back.setColor('#88bbff'));
     back.on('pointerout',  () => back.setColor('#4488ff'));
     back.on('pointerdown', () => {
+      localStorage.removeItem('session_token');
+      usePlayerStore.getState().reset();
       this.cameras.main.fade(500, 0, 0, 0);
       this.time.delayedCall(500, () => this.scene.start('TitleScene'));
     });

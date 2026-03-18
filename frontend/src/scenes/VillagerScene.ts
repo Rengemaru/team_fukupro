@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { usePlayerStore } from '../store/playerStore';
 import { useGameStore } from '../store/gameStore';
 import { apiClient } from '../api/apiClient';
+import { useSceneStore } from '../store/sceneStore';
 
 type WeatherChoice = 'thunder' | 'sunny' | 'rain' | 'wind' | 'hail';
 type VillagerType = 'man' | 'woman' | 'beast_attack' | 'sailing_ship' | 'drought' | 'heavy_rain';
@@ -159,6 +160,8 @@ export class VillagerScene extends Phaser.Scene {
   }
 
   create(data: { nodeId: number; villagerType: VillagerType }) {
+    useSceneStore.getState().setCurrentScene('VillagerScene');
+    useSceneStore.getState().setMikeVisible(true);
     this.villagerChoiceMade = false;
     this.villagerChoiceTriggers = {};
     this.villagerBtnRedraw = {};
@@ -184,6 +187,8 @@ export class VillagerScene extends Phaser.Scene {
   }
 
   shutdown() {
+    useSceneStore.getState().setCurrentScene('');
+    useSceneStore.getState().setMikeVisible(false);
     this.game.events.off('weatherChanged', undefined, this);
   }
 
@@ -334,6 +339,7 @@ export class VillagerScene extends Phaser.Scene {
       const triggerChoice = () => {
         if (this.villagerChoiceMade) return;
         this.villagerChoiceMade = true;
+        useSceneStore.getState().setMikeVisible(false);
         hit.disableInteractive();
 
         // パーティクルエフェクト
@@ -533,6 +539,7 @@ export class VillagerScene extends Phaser.Scene {
       const triggerChoice = () => {
         if (this.villagerChoiceMade) return;
         this.villagerChoiceMade = true;
+        useSceneStore.getState().setMikeVisible(false);
         hit.disableInteractive();
         for (let j = 0; j < 14; j++) {
           const px = W*0.55 + Phaser.Math.Between(-120, 120);
@@ -636,6 +643,8 @@ export class VillagerScene extends Phaser.Scene {
     btn.on('pointerover', () => btn.setColor('#88bbff'));
     btn.on('pointerout',  () => btn.setColor('#4488ff'));
     btn.on('pointerdown', () => {
+      localStorage.removeItem('session_token');
+      usePlayerStore.getState().reset();
       this.cameras.main.fade(500, 0, 0, 0);
       this.time.delayedCall(500, () => this.scene.start('TitleScene'));
     });

@@ -9,8 +9,28 @@ body,
 #root {
   width: 100%;
   height: 100%;
-  background: #000;
   overflow: hidden;
+}
+
+body {
+  position: relative;
+  background-color: #0d0820;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: -20px;
+  background-image: url('/taitle.jpg');
+  background-size: cover;
+  background-position: center;
+  filter: blur(10px) brightness(0.4);
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
 }
 
 .app-wrapper {
@@ -39,31 +59,52 @@ body,
 
 .mic-ui {
   display: inline-block;
+  background: rgba(8, 4, 28, 0.82);
+  border: 1.5px solid rgba(100, 160, 255, 0.55);
+  border-radius: 14px;
+  padding: 8px 10px;
+  box-shadow:
+    0 0 12px rgba(80, 140, 255, 0.35),
+    0 0 28px rgba(80, 140, 255, 0.15),
+    inset 0 0 8px rgba(80, 140, 255, 0.08);
+  backdrop-filter: blur(4px);
 }
 
 .mic-btn {
-  background: none;
-  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(160, 200, 255, 0.4);
   cursor: pointer;
-  padding: 0;
+  padding: 6px;
   margin: 0;
   line-height: 0;
   border-radius: 50%;
-  transition: transform 0.15s, opacity 0.15s;
-  opacity: 0.85;
+  transition: transform 0.15s, opacity 0.15s, box-shadow 0.15s;
+  opacity: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 0 8px rgba(100, 160, 255, 0.4);
 }
 
 .mic-btn:hover {
   transform: scale(1.15);
-  opacity: 1;
+  box-shadow: 0 0 16px rgba(100, 200, 255, 0.7);
 }
 
 .mic-btn--active {
   animation: pulse 1.2s ease-in-out infinite;
   position: relative;
+  border-color: rgba(255, 80, 80, 0.7);
+  box-shadow: 0 0 14px rgba(255, 80, 80, 0.5);
+}
+
+.mic-btn--idle {
+  animation: idle-glow 2.5s ease-in-out infinite;
+}
+
+@keyframes idle-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(100, 160, 255, 0.4); }
+  50%       { box-shadow: 0 0 18px rgba(100, 200, 255, 0.75); }
 }
 
 .mic-icon {

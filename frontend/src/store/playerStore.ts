@@ -19,7 +19,7 @@ export const usePlayerStore = create<PlayerStore>((set) => ({
   score: 0,
   dealDamage: () => set((s) => ({ hp: Math.max(0, s.hp - 1) })),
   heal: () => set((s) => ({ hp: Math.min(s.maxHP, s.hp + 1) })),
-  setHp: (hp) => set({ hp }),
+  setHp: (hp) => set((s) => ({ hp: Math.min(s.maxHP, Math.max(0, hp)) })),
   addScore: (pts) => set((s) => ({ score: s.score + pts })),
   reset: () => set({ hp: MAX_HP, score: 0 }),
 }))

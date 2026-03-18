@@ -205,6 +205,8 @@ class MapGenerator
     enemy_nodes = nodes.select { |n| n[:type] == ::Constants::MapNode::ENEMY }
     enemies     = Enemy.all.to_a.shuffle
 
+    return if enemies.empty?
+
     enemy_nodes.each_with_index do |node, i|
       enemy             = enemies[i % enemies.size]
       node[:enemy_id]   = enemy.id

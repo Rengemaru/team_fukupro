@@ -1,46 +1,64 @@
+import { useEffect, useRef, useState } from 'react'
 import { PhaserGame } from './components/PhaserGame'
-import HPHeart from './components/HPHeart'
 import MikeAccess from './components/MikeAccess'
-import WeatherIcon from './component/wether_icon'
-import type { WeatherType } from './component/wether_icon'
-import { useWeatherStore } from './store/weatherStore'
-import { usePlayerStore } from './store/playerStore'
+import { useSceneStore } from './store/sceneStore'
 import './App.css'
 
-const VALID_WEATHER: WeatherType[] = ['sunny', 'rain', 'thunder', 'wind', 'hail']
-
 function App() {
-  const { hp, maxHP } = usePlayerStore()
-  const { weather } = useWeatherStore()
+  const { currentScene, mikeVisible } = useSceneStore()
+  const isVillagerScene = currentScene === 'VillagerScene'
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [canvasRect, setCanvasRect] = useState<{ left: number; bottom: number } | null>(null)
 
-  const currentWeather = VALID_WEATHER.includes(weather as WeatherType)
-    ? (weather as WeatherType)
-    : null
+  useEffect(() => {
+    if (!mikeVisible) return
+
+    const update = () => {
+      const canvas = wrapperRef.current?.querySelector('canvas')
+      if (!canvas) return
+      const r = canvas.getBoundingClientRect()
+      // GameScene: HUD下20%、VillagerScene: HUD下23%
+      const hudFraction = isVillagerScene ? 0.23 : 0.20
+      const hudHeight = r.height * hudFraction
+      setCanvasRect({ left: r.left, bottom: window.innerHeight - r.bottom + hudHeight })
+    }
+
+    update()
+    const timer = setInterval(update, 300)
+    window.addEventListener('resize', update)
+    return () => { clearInterval(timer); window.removeEventListener('resize', update) }
+  }, [mikeVisible, isVillagerScene])
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#0d0820' }}>
+    <div ref={wrapperRef} style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#0d0820' }}>
+      {/* デッドスペース背景 */}
+      <div style={{
+        position: 'absolute',
+        inset: '-20px',
+        backgroundImage: 'url(/mura.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        filter: 'blur(10px) brightness(0.45)',
+        zIndex: 0,
+      }} />
+
       {/* Phaser ゲームキャンバス */}
-      <PhaserGame />
+      <div style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%' }}>
+        <PhaserGame />
+      </div>
 
-      {/* HUD オーバーレイ */}
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        {/* 左上: HP */}
-        <div style={{ position: 'absolute', top: 16, left: 16, pointerEvents: 'auto' }}>
-          <HPHeart currentHP={hp} maxHP={maxHP} hearts={maxHP} />
-        </div>
-
-        {/* 右上: 天候アイコン */}
-        {currentWeather && (
-          <div style={{ position: 'absolute', top: 16, right: 16 }}>
-            <WeatherIcon weather={currentWeather} />
-          </div>
-        )}
-
-        {/* 左下: マイク */}
-        <div style={{ position: 'absolute', bottom: 16, left: 16, pointerEvents: 'auto' }}>
+      {/* 戦闘・村イベント時のみ: マイクをキャンバス左下に表示 */}
+      {mikeVisible && canvasRect && (
+        <div style={{
+          position: 'fixed',
+          left: canvasRect.left + 12,
+          bottom: canvasRect.bottom + 12,
+          zIndex: 2,
+          pointerEvents: 'auto',
+        }}>
           <MikeAccess />
         </div>
-      </div>
+      )}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { usePlayerStore } from '../store/playerStore';
 
 const WALK_SCALE = 1.2;  // ← 表示倍率
 const WALK_KEYS  = ['gale_walk','gale_walk1','gale_walk2','gale_walk3','gale_walk4','gale_walk5'] as const;
@@ -302,6 +303,8 @@ export class TitleScene extends Phaser.Scene {
 
   // ─── ゲーム開始 ────────────────────────────────────────────
   private startGame() {
+    localStorage.removeItem('session_token');
+    usePlayerStore.getState().reset();
     this.input.keyboard?.removeAllListeners();
     this.cameras.main.fade(700, 0, 0, 0);
     this.time.delayedCall(700, () => this.scene.start('MapScene'));
