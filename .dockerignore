@@ -1,0 +1,12 @@
+.git
+.github
+frontend/
+node_modules
+tmp/
+log/
+.env*
+backend/config/master.key
+spec/
+test/
+README.md
+docker-compose*.yml
