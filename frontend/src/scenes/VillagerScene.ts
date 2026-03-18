@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
+import { usePlayerStore } from '../store/playerStore';
 
 type WeatherChoice = 'thunder' | 'fire' | 'water' | 'wind' | 'hail';
-type VillagerType = 'man' | 'woman' | 'beast_attack' | 'sailing_ship';
+type VillagerType = 'man' | 'woman' | 'beast_attack' | 'sailing_ship' | 'drought' | 'heavy_rain';
 
 const WEATHER_BTN: Record<WeatherChoice, {
   label: string; emoji: string; btnColor: number; btnGlow: number;
@@ -13,7 +14,7 @@ const WEATHER_BTN: Record<WeatherChoice, {
   fire:    { label:'晴れ', emoji:'☀️', btnColor:0x2a2200, btnGlow:0xffcc00,
     manResult: '☀️ 眩い光が周囲を照らし、魔物を退けた！\n「熱いけど…命拾いした！」',
     womanResult: '☀️ 陽光の壁が魔物の道を塞いだ！\n「あなたは天候の使い手…！」' },
-  water:   { label:'水', emoji:'💧', btnColor:0x002244, btnGlow:0x44aaff,
+  water:   { label:'雨', emoji:'💧', btnColor:0x002244, btnGlow:0x44aaff,
     manResult: '💧 急流が魔物を押し流した！\n「川が…あいつを飲み込んだ！」',
     womanResult: '💧 水の盾が魔物の爪を弾いた！\n「ありがとう、怪我はない…！」' },
   wind:    { label:'風', emoji:'🌀', btnColor:0x003322, btnGlow:0x44ffaa,
@@ -24,25 +25,74 @@ const WEATHER_BTN: Record<WeatherChoice, {
     womanResult: '🌨 氷の結晶が魔物を貫いた！\n「冷たいけど…助かった！」' },
 };
 
-// 獣の襲撃イベント用メッセージ（雷のみ成功）
-const BEAST_ATTACK_RESULTS: Record<WeatherChoice, string> = {
-  thunder: '⚡ 天空を裂く雷が獣たちを直撃！\n「ぎゃああ！」と叫び散り散りに逃げ去った！\n「す、すごい…村が救われた！ありがとう！」',
-  fire:    '☀️ 光が獣たちを一瞬怯ませたが…\n獣たちは慣れた様子で再び押し寄せてきた。\n「も、もっと強い力が必要だ…！」',
-  water:   '💧 水流が獣を押しとどめようとするが…\n獣たちは川を泳いで渡ってきた！\n「水では止められない…別の手を！」',
-  wind:    '🌀 嵐の風が獣たちを一時遠ざけたが…\n大きな獣は踏ん張り、また迫ってきた。\n「風だけでは足りない…！」',
-  hail:    '🌨 雹が獣たちに降り注いだが…\n毛皮で守られた獣には効果が薄かった。\n「もっと強力な何かが必要だ！」',
+interface SpecialEventCfg {
+  bgKey: string;
+  titleStr: string;
+  speechStr: string;
+  correctChoices: WeatherChoice[];
+  penaltyChoices: WeatherChoice[];
+  results: Record<WeatherChoice, string>;
+}
+
+const SPECIAL_EVENTS: Record<'beast_attack' | 'sailing_ship' | 'drought' | 'heavy_rain', SpecialEventCfg> = {
+  beast_attack: {
+    bgKey: 'village_attack',
+    titleStr: '⚠ 獣たちが村を襲っている！',
+    speechStr: '「たすけてくれ！獣の群れが\n　村に押し寄せてきた…！\n　天候の力で追い払って！」',
+    correctChoices: ['thunder'],
+    penaltyChoices: ['fire'],
+    results: {
+      thunder: '⚡ 天空を裂く雷が獣たちを直撃！\n獣たちは悲鳴を上げて散り散りに逃げ去った！\n「す、すごい…村が救われた！ありがとう！」',
+      fire:    '☀️ 晴れで気温が上がり、獣が活発になった！\n手に負えなくなってしまった…\n💢 村人たちに怒られてボコボコにされた！ HP -1',
+      water:   '💧 水流が獣を一時遠ざけたが…\n獣たちは川を泳いで戻ってきた。\n「水では止められない…別の手を！」',
+      wind:    '🌀 嵐の風が獣を遠ざけたが…\n大きな獣は踏ん張り、また迫ってきた。\n「風だけでは足りない…！」',
+      hail:    '🌨 雹が獣たちに降り注いだが…\n毛皮に守られた獣には効果が薄かった。\n「もっと強力な何かが必要だ！」',
+    },
+  },
+  sailing_ship: {
+    bgKey: 'wind_village',
+    titleStr: '⛵ 帆船が出港できない…',
+    speechStr: '「帆船が港から\n　動けないんだ…！\n　天候の力で何とか\n　してくれないか！」',
+    correctChoices: ['wind'],
+    penaltyChoices: ['thunder'],
+    results: {
+      wind:    '🌀 力強い風が帆いっぱいに吹き込み…\n帆船がゆっくりと、力強く動き出した！\n「出港できる…！ありがとう、天候使い！」',
+      thunder: '⚡ 雷が落ちてマストが折れてしまった！\n修理費が莫大になってしまい…\n💢 怒り狂った船長にボコボコにされた！ HP -1',
+      fire:    '☀️ 太陽が照りつけるが、帆は動かない…\n熱さで船員が倒れそうになった。\n「晴れは要らない…風を！」',
+      water:   '💧 波が激しくなったが向かい風になった！\n船はむしろ港に押し返されてしまった。\n「水ではなく風が必要なんだ！」',
+      hail:    '🌨 雹が甲板を叩き、船員が避難した…\n嵐では出港できない。\n「穏やかな風を…お願いだ！」',
+    },
+  },
+  drought: {
+    bgKey: 'drought_village',
+    titleStr: '🌵 村が干ばつに苦しんでいる！',
+    speechStr: '「畑が全滅だ…\n　作物が枯れ果てた…！\n　天候の力で村を\n　救ってくれ！」',
+    correctChoices: ['water', 'hail'],
+    penaltyChoices: ['fire'],
+    results: {
+      water:   '💧 恵みの雨が大地に降り注いだ！\n干からびた畑に水が満ちていく…\n「ありがとう！作物が生き返った！」',
+      hail:    '🌨 雹が降り注ぎ大地を冷やした！\nその後に大量の雪解け水が流れ込んだ！\n「雹まで役に立つとは…！ありがとう！」',
+      fire:    '☀️ 炎天下でさらに乾燥が加速した！\n残っていた作物まで全滅してしまった…\n💢 激怒した村人たちにボコボコにされた！ HP -1',
+      thunder: '⚡ 雷が落ちたが雨は来なかった…\n乾いた大地は変わらないまま。\n「雷だけでは水は湧かない…」',
+      wind:    '🌀 熱風が吹いて、さらに乾燥が進んだ…\nほこりだらけになってしまった。\n「風じゃなくて水が欲しいんだ！」',
+    },
+  },
+  heavy_rain: {
+    bgKey: 'heavy_rain_village',
+    titleStr: '🌧 村が大雨で水浸しだ！',
+    speechStr: '「洪水が来る…！\n　村が沈んでしまう…\n　天候の力で何とか\n　してくれ！」',
+    correctChoices: ['fire'],
+    penaltyChoices: ['water', 'thunder'],
+    results: {
+      fire:    '☀️ 強い日差しが雲を吹き散らした！\n雨が止み、青空が村に戻ってきた！\n「奇跡だ…！ありがとう！村が救われた！」',
+      water:   '💧 さらに雨が強まって洪水になった！\n村の家が流されてしまった…\n💢 全財産を失った村人にボコボコにされた！ HP -1',
+      thunder: '⚡ 雷雨になってさらに状況が悪化！\n落雷で家が燃え水も溢れ大惨事に…\n💢 泣き叫ぶ村人たちにボコボコにされた！ HP -1',
+      wind:    '🌀 強風で屋根が吹き飛んでしまった…\n雨も降り続けて二重苦になった。\n「風も雨もいらない！晴れを！」',
+      hail:    '🌨 雹まで降ってきて大惨事に…\n雨と雹で畑が壊滅してしまった。\n「もう何もかもがダメだ…！」',
+    },
+  },
 };
 
-// 帆船イベント用メッセージ（風のみ成功）
-const SAILING_SHIP_RESULTS: Record<WeatherChoice, string> = {
-  wind:    '🌀 力強い風が帆いっぱいに吹き込み…\n帆船がゆっくりと、しかし力強く動き出した！\n「出港できる…！ありがとう、天候使い！」',
-  thunder: '⚡ 雷が轟いたが帆は揺れるだけ…\n船乗りたちは帆柱にしがみつき震えた。\n「雷じゃない、風が欲しいんだ！」',
-  fire:    '☀️ 太陽が照りつけるが、帆は動かない…\n熱さで船員が倒れそうになってしまった。\n「晴れは要らない…風を！」',
-  water:   '💧 波が激しくなったが向かい風になった！\n船はむしろ港に押し返されてしまった。\n「水ではなく風が必要なんだ！」',
-  hail:    '🌨 雹が甲板を叩き、船員が避難した…\n嵐では出港できない。\n「穏やかな風を…お願いだ！」',
-};
-
-// タイトル画面と同じ全6フレーム
 const ALL_WALK_KEYS = [
   'gale_walk','gale_walk1','gale_walk2','gale_walk3','gale_walk4','gale_walk5'
 ] as const;
@@ -68,10 +118,12 @@ export class VillagerScene extends Phaser.Scene {
   constructor() { super({ key: 'VillagerScene' }); }
 
   preload() {
-    if (!this.textures.exists('man_murabito'))   this.load.image('man_murabito',   'man_murabito.jpg');
-    if (!this.textures.exists('woman_murabito')) this.load.image('woman_murabito', 'woman_murabito.jpg');
-    if (!this.textures.exists('village_attack')) this.load.image('village_attack', 'village-underattack.jpg');
-    if (!this.textures.exists('wind_village'))   this.load.image('wind_village',   'wind-village.jpg');
+    if (!this.textures.exists('man_murabito'))    this.load.image('man_murabito',    'man_murabito.jpg');
+    if (!this.textures.exists('woman_murabito'))  this.load.image('woman_murabito',  'woman_murabito.jpg');
+    if (!this.textures.exists('village_attack'))  this.load.image('village_attack',  'village-underattack.jpg');
+    if (!this.textures.exists('wind_village'))    this.load.image('wind_village',    'wind-village.jpg');
+    if (!this.textures.exists('drought_village')) this.load.image('drought_village', 'drought_stricken_village.png');
+    if (!this.textures.exists('heavy_rain_village')) this.load.image('heavy_rain_village', 'heavy_rain_village.png');
     ALL_WALK_KEYS.forEach(key => {
       if (!this.textures.exists(key))
         this.load.image(key, WALK_FILE[key] ?? `${key}.jpg`);
@@ -112,12 +164,10 @@ export class VillagerScene extends Phaser.Scene {
     const nodeId       = data?.nodeId       ?? 0;
     const villagerType = data?.villagerType ?? 'man';
 
-    if (villagerType === 'beast_attack') {
-      this.buildBeastAttackScene(W, H, nodeId);
-    } else if (villagerType === 'sailing_ship') {
-      this.buildSailingShipScene(W, H, nodeId);
+    if (villagerType === 'man' || villagerType === 'woman') {
+      this.buildVillagerScene(W, H, nodeId, villagerType);
     } else {
-      this.buildVillagerScene(W, H, nodeId, villagerType as 'man' | 'woman');
+      this.buildSpecialScene(W, H, nodeId, SPECIAL_EVENTS[villagerType]);
     }
 
     this.game.events.on('weatherChanged', (apiWeather: string) => {
@@ -140,32 +190,25 @@ export class VillagerScene extends Phaser.Scene {
     });
   }
 
-  // ─── 獣の襲撃イベント ────────────────────────────────────────
-  private buildBeastAttackScene(W: number, H: number, nodeId: number) {
-    // 背景画像
-    const hasBg = this.textures.exists('village_attack') && this.textures.get('village_attack').key !== '__MISSING';
+  // ─── 特殊イベント（背景画像あり）────────────────────────────
+  private buildSpecialScene(W: number, H: number, nodeId: number, cfg: SpecialEventCfg) {
+    const hasBg = this.textures.exists(cfg.bgKey) && this.textures.get(cfg.bgKey).key !== '__MISSING';
     if (hasBg) {
-      this.add.image(W/2, H/2, 'village_attack').setDisplaySize(W, H);
+      this.add.image(W/2, H/2, cfg.bgKey).setDisplaySize(W, H);
     } else {
-      const bg = this.add.graphics();
-      bg.fillStyle(0x1a0808); bg.fillRect(0, 0, W, H);
+      this.add.graphics().fillStyle(0x080c1a).fillRect(0, 0, W, H);
     }
-    // 暗いオーバーレイ（上部と下部）
     const overlay = this.add.graphics();
-    overlay.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.65, 0.65, 0, 0);
-    overlay.fillRect(0, 0, W, H * 0.25);
-    overlay.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0, 0, 0.82, 0.82);
+    overlay.fillGradientStyle(0x000000,0x000000,0x000000,0x000000,0.65,0.65,0,0);
+    overlay.fillRect(0, 0, W, H * 0.22);
+    overlay.fillGradientStyle(0x000000,0x000000,0x000000,0x000000,0,0,0.82,0.82);
     overlay.fillRect(0, H * 0.72, W, H * 0.28);
 
     this.addBackButton(W);
 
-    const uiContainer = this.add.container(0, 0).setVisible(false);
-    this.buildSpecialEventUI(W, H, nodeId, uiContainer,
-      '⚠ 獣たちが村を襲っている！',
-      '「たすけてくれ！獣の群れが\n　村に押し寄せてきた…！\n　天候の力で追い払って！」',
-      BEAST_ATTACK_RESULTS,
-      'thunder'
-    );
+    // depth:10 でヒーローより前面に描画
+    const uiContainer = this.add.container(0, 0).setVisible(false).setDepth(10);
+    this.buildSpecialEventUI(W, H, nodeId, uiContainer, cfg);
 
     this.cameras.main.fadeIn(500);
     this.time.delayedCall(300, () => {
@@ -173,109 +216,81 @@ export class VillagerScene extends Phaser.Scene {
     });
   }
 
-  // ─── 帆船・無風イベント ──────────────────────────────────────
-  private buildSailingShipScene(W: number, H: number, nodeId: number) {
-    // 背景画像
-    const hasBg = this.textures.exists('wind_village') && this.textures.get('wind_village').key !== '__MISSING';
-    if (hasBg) {
-      this.add.image(W/2, H/2, 'wind_village').setDisplaySize(W, H);
-    } else {
-      const bg = this.add.graphics();
-      bg.fillStyle(0x080c1a); bg.fillRect(0, 0, W, H);
-    }
-    // 暗いオーバーレイ
-    const overlay = this.add.graphics();
-    overlay.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.65, 0.65, 0, 0);
-    overlay.fillRect(0, 0, W, H * 0.25);
-    overlay.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0, 0, 0.82, 0.82);
-    overlay.fillRect(0, H * 0.72, W, H * 0.28);
-
-    this.addBackButton(W);
-
-    const uiContainer = this.add.container(0, 0).setVisible(false);
-    this.buildSpecialEventUI(W, H, nodeId, uiContainer,
-      '⛵ 帆船が出港できない…',
-      '「風がなくて帆船が\n　動かせないんだ…\n　風の力を貸してくれ！」',
-      SAILING_SHIP_RESULTS,
-      'wind'
-    );
-
-    this.cameras.main.fadeIn(500);
-    this.time.delayedCall(300, () => {
-      this.animateHeroEntry(W, H * 0.72, () => uiContainer.setVisible(true));
-    });
-  }
-
-  // ─── 特殊イベント共通UI（正解の天候1つ） ────────────────────
+  // ─── 特殊イベントUI ──────────────────────────────────────────
   private buildSpecialEventUI(
     W: number, H: number, nodeId: number,
     container: Phaser.GameObjects.Container,
-    titleStr: string,
-    speechStr: string,
-    results: Record<WeatherChoice, string>,
-    _correctChoice: WeatherChoice
+    cfg: SpecialEventCfg
   ) {
     const add = (go: Phaser.GameObjects.GameObject) => { container.add(go); return go; };
 
-    // タイトルテキスト
-    add(this.add.text(W/2, 26, titleStr, {
-      fontSize:'22px', fontFamily:'"Yu Gothic","YuGothic",serif',
+    add(this.add.text(W/2, 18, cfg.titleStr, {
+      fontSize:'20px', fontFamily:'"Yu Gothic","YuGothic",serif',
       color:'#ff9944', stroke:'#1a0800', strokeThickness:4,
     }).setOrigin(0.5));
 
-    // セリフ吹き出し
+    // 吹き出し（左寄せ、ヒーローの右）
+    const bx = W * 0.28, bw = W * 0.68, bTop = 44, bH = 100;
     const bubbleBg = this.add.graphics();
-    bubbleBg.fillStyle(0x0a0a0a, 0.88);
-    bubbleBg.fillRoundedRect(W*0.38, 52, W*0.58, 108, 12);
-    bubbleBg.lineStyle(2, 0x884422, 0.85);
-    bubbleBg.strokeRoundedRect(W*0.38, 52, W*0.58, 108, 12);
-    bubbleBg.fillStyle(0x0a0a0a, 0.88);
-    bubbleBg.fillTriangle(W*0.38, 96, W*0.38-18, 104, W*0.38, 112);
+    bubbleBg.fillStyle(0x050505, 0.90);
+    bubbleBg.fillRoundedRect(bx, bTop, bw, bH, 12);
+    bubbleBg.lineStyle(2, 0x884422, 0.90);
+    bubbleBg.strokeRoundedRect(bx, bTop, bw, bH, 12);
+    bubbleBg.fillStyle(0x050505, 0.90);
+    bubbleBg.fillTriangle(bx, bTop+34, bx-16, bTop+44, bx, bTop+54);
     add(bubbleBg);
-    add(this.add.text(W*0.38+14, 62, speechStr, {
+    add(this.add.text(bx+12, bTop+8, cfg.speechStr, {
       fontSize:'13px', fontFamily:'"Yu Gothic","YuGothic",monospace',
       color:'#ffddcc', lineSpacing:4,
     }));
 
-    // ── 下部HUDバー ───────────────────────────────────────
-    const hudY  = H * 0.77;
+    // HUDバー
+    const hudY = H * 0.77;
     const hudBg = this.add.graphics();
     hudBg.fillStyle(0x000011, 0.92); hudBg.fillRect(0, hudY, W, H - hudY);
     hudBg.lineStyle(2, 0x442288, 1);  hudBg.strokeRect(0, hudY, W, H - hudY);
     add(hudBg);
-
     add(this.add.text(W/2, hudY + 8, '▶  天候を選んでください', {
       fontSize:'14px', fontFamily:'"Yu Gothic","YuGothic",monospace', color:'#ffaa88',
     }).setOrigin(0.5, 0));
 
-    // 結果テキスト（最初は非表示）
+    // 結果ボックス（非表示）
     const resultBg   = this.add.graphics().setVisible(false);
-    const resultText = this.add.text(W/2, H*0.60, '', {
-      fontSize:'16px', fontFamily:'"Yu Gothic","YuGothic",serif',
+    const resultText = this.add.text(W/2, H*0.575, '', {
+      fontSize:'15px', fontFamily:'"Yu Gothic","YuGothic",serif',
       color:'#ffeeaa', stroke:'#1a0a00', strokeThickness:3, align:'center', lineSpacing:4,
     }).setOrigin(0.5).setVisible(false);
     add(resultBg); add(resultText);
 
-    // 天候ボタン5種
+    this.buildWeatherButtons(W, H, hudY, nodeId, container, cfg, resultBg, resultText);
+  }
+
+  private buildWeatherButtons(
+    W: number, H: number, hudY: number, nodeId: number,
+    container: Phaser.GameObjects.Container,
+    cfg: SpecialEventCfg,
+    resultBg: Phaser.GameObjects.Graphics,
+    resultText: Phaser.GameObjects.Text
+  ) {
+    const add = (go: Phaser.GameObjects.GameObject) => { container.add(go); return go; };
     const types: WeatherChoice[] = ['thunder','fire','water','wind','hail'];
-    const gap  = 8;
-    const btnH = H - hudY - 30;
+    const gap = 8, btnH = H - hudY - 30;
     const btnW = Math.floor((W - 20 - gap*(types.length-1)) / types.length);
-    const by   = hudY + 26;
+    const by = hudY + 26;
 
     types.forEach((type, i) => {
-      const cfg = WEATHER_BTN[type];
-      const bx  = 10 + i*(btnW+gap);
+      const wcfg = WEATHER_BTN[type];
+      const bx = 10 + i*(btnW+gap);
 
       const frame = this.add.graphics();
       const draw = (hover: boolean) => {
         const isActive = this.activeWeatherType === type;
         frame.clear();
-        frame.fillStyle(cfg.btnColor, hover || isActive ? 1 : 0.9);
+        frame.fillStyle(wcfg.btnColor, hover || isActive ? 1 : 0.9);
         frame.fillRoundedRect(bx, by, btnW, btnH, 6);
         frame.lineStyle(
           isActive ? 4 : hover ? 3 : 2,
-          isActive ? 0xffffff : hover ? 0xffffff : cfg.btnGlow,
+          isActive ? 0xffffff : hover ? 0xffffff : wcfg.btnGlow,
           isActive ? 1 : hover ? 1 : 0.85
         );
         frame.strokeRoundedRect(bx, by, btnW, btnH, 6);
@@ -283,8 +298,8 @@ export class VillagerScene extends Phaser.Scene {
       draw(false);
       this.villagerBtnRedraw[type] = draw;
       add(frame);
-      add(this.add.text(bx+btnW/2, by+10, cfg.emoji, {fontSize:'18px'}).setOrigin(0.5, 0));
-      add(this.add.text(bx+btnW/2, by+btnH-16, cfg.label, {
+      add(this.add.text(bx+btnW/2, by+10, wcfg.emoji, {fontSize:'18px'}).setOrigin(0.5, 0));
+      add(this.add.text(bx+btnW/2, by+btnH-16, wcfg.label, {
         fontSize:'18px', fontFamily:'"Yu Gothic","YuGothic",monospace',
         color:'#ffffff', stroke:'#000', strokeThickness:2,
       }).setOrigin(0.5, 1));
@@ -293,36 +308,51 @@ export class VillagerScene extends Phaser.Scene {
         .setInteractive({ useHandCursor:true });
       add(hit);
 
-      const isSuccess = type === _correctChoice;
+      const isCorrect = cfg.correctChoices.includes(type);
+      const isPenalty = cfg.penaltyChoices.includes(type);
 
       const triggerChoice = () => {
         if (this.villagerChoiceMade) return;
         this.villagerChoiceMade = true;
         hit.disableInteractive();
 
-        // エフェクト
+        // パーティクルエフェクト
+        const particleColor = isCorrect ? 0xffdd44 : isPenalty ? 0xff2222 : wcfg.btnGlow;
         for (let j = 0; j < 14; j++) {
-          const px = W*0.50 + Phaser.Math.Between(-120, 120);
+          const px = W*0.55 + Phaser.Math.Between(-120, 120);
           const py = H*0.45 + Phaser.Math.Between(-60, 60);
-          const color = isSuccess ? 0xffdd44 : cfg.btnGlow;
-          const p = this.add.circle(px, py, Phaser.Math.Between(3,7), color, 0.9);
+          const p = this.add.circle(px, py, Phaser.Math.Between(3,7), particleColor, 0.9);
+          p.setDepth(20);
           this.tweens.add({ targets:p, y:py-Phaser.Math.Between(50,110), alpha:0,
             duration:Phaser.Math.Between(600,1100), delay:j*55, onComplete:()=>p.destroy() });
         }
 
+        // ペナルティ：HP -1 ＋ 赤フラッシュ
+        if (isPenalty) {
+          usePlayerStore.getState().dealDamage();
+          const flash = this.add.rectangle(W/2, H/2, W, H, 0xff0000, 0.55).setDepth(50);
+          this.tweens.add({
+            targets: flash, alpha: 0, duration: 600,
+            onComplete: () => flash.destroy(),
+          });
+          // 画面揺れ
+          this.cameras.main.shake(400, 0.014);
+        }
+
         // 結果表示
-        const msg = results[type];
-        const bgColor = isSuccess ? 0x041a10 : 0x1a0404;
-        const borderColor = isSuccess ? 0x33dd66 : 0xaa3333;
-        resultBg.fillStyle(bgColor, 0.92);
-        resultBg.fillRoundedRect(W/2-260, H*0.53, 520, 88, 10);
-        resultBg.lineStyle(2, borderColor, 0.9);
-        resultBg.strokeRoundedRect(W/2-260, H*0.53, 520, 88, 10);
+        const msg = cfg.results[type];
+        const bgColor    = isCorrect ? 0x041a10 : isPenalty ? 0x1a0404 : 0x0a0a18;
+        const borderColor = isCorrect ? 0x33dd66 : isPenalty ? 0xff3333 : 0x444488;
+        resultBg.clear();
+        resultBg.fillStyle(bgColor, 0.93);
+        resultBg.fillRoundedRect(W/2-260, H*0.50, 520, 100, 10);
+        resultBg.lineStyle(2, borderColor, 0.95);
+        resultBg.strokeRoundedRect(W/2-260, H*0.50, 520, 100, 10);
         resultBg.setVisible(true);
-        resultText.setText(msg).setY(H*0.575).setVisible(true);
+        resultText.setText(msg).setY(H*0.555).setVisible(true);
         this.tweens.add({ targets:resultText, alpha:0.4, duration:450, yoyo:true, repeat:1 });
 
-        const delay = isSuccess ? 2000 : 2200;
+        const delay = isCorrect ? 2000 : 2400;
         this.time.delayedCall(delay, () => {
           const completed: number[] = this.game.registry.get('completedNodes') ?? [];
           if (!completed.includes(nodeId)) completed.push(nodeId);
@@ -341,7 +371,7 @@ export class VillagerScene extends Phaser.Scene {
     });
   }
 
-  // ─── 村の背景 ─────────────────────────────────────────────────
+  // ─── 村の背景 ──────────────────────────────────────────────
   private buildVillageBackground(W: number, H: number, groundY: number) {
     this.add.image(W / 2, H * 0.52, 'bg_mura').setDisplaySize(W, H * 1.04);
     const ground = this.add.graphics();
@@ -349,7 +379,7 @@ export class VillagerScene extends Phaser.Scene {
     ground.fillRect(0, groundY, W, H - groundY);
   }
 
-  // ─── 通常の村人イベント ──────────────────────────────────────
+  // ─── 通常の村人イベント ────────────────────────────────────
   private buildVillagerScene(W: number, H: number, nodeId: number, villagerType: 'man' | 'woman') {
     const villagerKey = villagerType === 'man' ? 'man_murabito' : 'woman_murabito';
     const groundY = H * 0.72;
@@ -359,21 +389,19 @@ export class VillagerScene extends Phaser.Scene {
 
     this.buildVillageBackground(W, H, groundY);
 
-    const villagerX = W * 0.64;
+    const villagerX = W * 0.68;
     const hasVillager = this.textures.exists(villagerKey) && this.textures.get(villagerKey).key !== '__MISSING';
     if (hasVillager) {
       this.add.image(villagerX, groundY, villagerKey)
-        .setOrigin(0.5, 1)
-        .setScale(0.60)
-        .setFlipX(true);
+        .setOrigin(0.5, 1).setScale(0.60).setFlipX(true);
     } else {
       this.makeFallbackVillager(villagerX, groundY, villagerType);
     }
 
     this.addBackButton(W);
 
-    const uiContainer = this.add.container(0, 0).setVisible(false);
-    this.buildEventUI(W, H, nodeId, villagerType, uiContainer);
+    const uiContainer = this.add.container(0, 0).setVisible(false).setDepth(10);
+    this.buildNormalEventUI(W, H, nodeId, villagerType, uiContainer);
 
     this.cameras.main.fadeIn(500);
     this.time.delayedCall(300, () => {
@@ -381,85 +409,84 @@ export class VillagerScene extends Phaser.Scene {
     });
   }
 
-  // ─── イベントUI（下部ボタン＋吹き出し） ─────────────────────
-  private buildEventUI(
+  // ─── 通常イベントUI ────────────────────────────────────────
+  private buildNormalEventUI(
     W: number, H: number, nodeId: number,
     villagerType: 'man' | 'woman',
     container: Phaser.GameObjects.Container
   ) {
     const add = (go: Phaser.GameObjects.GameObject) => { container.add(go); return go; };
 
-    add(this.add.text(W/2, 26, '村人が助けを求めている！', {
+    add(this.add.text(W/2, 18, '村人が助けを求めている！', {
       fontSize:'22px', fontFamily:'"Yu Gothic","YuGothic",serif',
       color:'#ffcc66', stroke:'#1a0800', strokeThickness:4,
     }).setOrigin(0.5));
 
+    const bx = W * 0.28, bw = W * 0.68, bTop = 44, bH = 108;
     const bubbleBg = this.add.graphics();
-    bubbleBg.fillStyle(0x0a1a0a, 0.88);
-    bubbleBg.fillRoundedRect(W*0.38, 52, W*0.58, 108, 12);
+    bubbleBg.fillStyle(0x0a1a0a, 0.90);
+    bubbleBg.fillRoundedRect(bx, bTop, bw, bH, 12);
     bubbleBg.lineStyle(2, 0x3a7a44, 0.85);
-    bubbleBg.strokeRoundedRect(W*0.38, 52, W*0.58, 108, 12);
-    bubbleBg.fillStyle(0x0a1a0a, 0.88);
-    bubbleBg.fillTriangle(W*0.38, 96, W*0.38-18, 104, W*0.38, 112);
+    bubbleBg.strokeRoundedRect(bx, bTop, bw, bH, 12);
+    bubbleBg.fillStyle(0x0a1a0a, 0.90);
+    bubbleBg.fillTriangle(bx, bTop+34, bx-16, bTop+44, bx, bTop+54);
     add(bubbleBg);
     const speechStr = villagerType === 'man'
       ? '「た、助けてください！\n　魔物に追われています…\n　あなたの天候の力で\n　何とかしてください！」'
       : '「お願い！ここから\n　逃げ出す手助けを…\n　あなたの天候の力で\n　魔物を追い払って！」';
-    add(this.add.text(W*0.38+14, 62, speechStr, {
+    add(this.add.text(bx+12, bTop+8, speechStr, {
       fontSize:'13px', fontFamily:'"Yu Gothic","YuGothic",monospace',
       color:'#ddeedd', lineSpacing:4,
     }));
 
-    const hudY  = H * 0.77;
+    const hudY = H * 0.77;
     const hudBg = this.add.graphics();
     hudBg.fillStyle(0x000011, 0.92); hudBg.fillRect(0, hudY, W, H - hudY);
     hudBg.lineStyle(2, 0x224488, 1);  hudBg.strokeRect(0, hudY, W, H - hudY);
     add(hudBg);
-
     add(this.add.text(W/2, hudY + 8, '▶  天候を選んでください', {
       fontSize:'14px', fontFamily:'"Yu Gothic","YuGothic",monospace', color:'#88ddbb',
     }).setOrigin(0.5, 0));
 
     const resultBg   = this.add.graphics().setVisible(false);
-    const resultText = this.add.text(W/2, H*0.60, '', {
+    const resultText = this.add.text(W/2, H*0.575, '', {
       fontSize:'17px', fontFamily:'"Yu Gothic","YuGothic",serif',
       color:'#88ffaa', stroke:'#001a0a', strokeThickness:3, align:'center', lineSpacing:4,
     }).setOrigin(0.5).setVisible(false);
     add(resultBg); add(resultText);
 
     const types: WeatherChoice[] = ['thunder','fire','water','wind','hail'];
-    const gap  = 8;
-    const btnH = H - hudY - 30;
+    const gap = 8, btnH = H - hudY - 30;
     const btnW = Math.floor((W - 20 - gap*(types.length-1)) / types.length);
-    const by   = hudY + 26;
+    const by = hudY + 26;
 
     types.forEach((type, i) => {
       const cfg = WEATHER_BTN[type];
-      const bx  = 10 + i*(btnW+gap);
+      const bx2 = 10 + i*(btnW+gap);
 
       const frame = this.add.graphics();
       const draw = (hover: boolean) => {
         const isActive = this.activeWeatherType === type;
         frame.clear();
         frame.fillStyle(cfg.btnColor, hover || isActive ? 1 : 0.9);
-        frame.fillRoundedRect(bx, by, btnW, btnH, 6);
+        frame.fillRoundedRect(bx2, by, btnW, btnH, 6);
         frame.lineStyle(
           isActive ? 4 : hover ? 3 : 2,
           isActive ? 0xffffff : hover ? 0xffffff : cfg.btnGlow,
           isActive ? 1 : hover ? 1 : 0.85
         );
-        frame.strokeRoundedRect(bx, by, btnW, btnH, 6);
+        frame.strokeRoundedRect(bx2, by, btnW, btnH, 6);
       };
       draw(false);
       this.villagerBtnRedraw[type] = draw;
       add(frame);
-      add(this.add.text(bx+btnW/2, by+10, cfg.emoji, {fontSize:'18px'}).setOrigin(0.5, 0));
-      add(this.add.text(bx+btnW/2, by+btnH-16, cfg.label, {
+      add(this.add.text(bx2+btnW/2, by+10, cfg.emoji, {fontSize:'18px'}).setOrigin(0.5, 0));
+      add(this.add.text(bx2+btnW/2, by+btnH-16, cfg.label, {
         fontSize:'18px', fontFamily:'"Yu Gothic","YuGothic",monospace',
         color:'#ffffff', stroke:'#000', strokeThickness:2,
       }).setOrigin(0.5, 1));
 
-      const hit = this.add.rectangle(bx+btnW/2, by+btnH/2, btnW, btnH, 0x000000, 0)
+      const hit = this.add.rectangle(bx2+btnW/2, by+btnH/2, btnW, btnH, 0x000000, 0)
         .setInteractive({ useHandCursor:true });
       add(hit);
 
@@ -468,19 +495,21 @@ export class VillagerScene extends Phaser.Scene {
         this.villagerChoiceMade = true;
         hit.disableInteractive();
         for (let j = 0; j < 14; j++) {
-          const px = W*0.50 + Phaser.Math.Between(-120, 120);
+          const px = W*0.55 + Phaser.Math.Between(-120, 120);
           const py = H*0.45 + Phaser.Math.Between(-60, 60);
-          const p  = this.add.circle(px, py, Phaser.Math.Between(3,7), cfg.btnGlow, 0.9);
+          const p = this.add.circle(px, py, Phaser.Math.Between(3,7), cfg.btnGlow, 0.9);
+          p.setDepth(20);
           this.tweens.add({ targets:p, y:py-Phaser.Math.Between(50,110), alpha:0,
             duration:Phaser.Math.Between(600,1100), delay:j*55, onComplete:()=>p.destroy() });
         }
         const msg = villagerType === 'man' ? cfg.manResult : cfg.womanResult;
-        resultBg.fillStyle(0x041210, 0.90);
-        resultBg.fillRoundedRect(W/2-250, H*0.55, 500, 72, 10);
+        resultBg.clear();
+        resultBg.fillStyle(0x041210, 0.92);
+        resultBg.fillRoundedRect(W/2-250, H*0.50, 500, 90, 10);
         resultBg.lineStyle(2, 0x33aa66, 0.9);
-        resultBg.strokeRoundedRect(W/2-250, H*0.55, 500, 72, 10);
+        resultBg.strokeRoundedRect(W/2-250, H*0.50, 500, 90, 10);
         resultBg.setVisible(true);
-        resultText.setText(msg).setY(H*0.59).setVisible(true);
+        resultText.setText(msg).setY(H*0.555).setVisible(true);
         this.tweens.add({ targets:resultText, alpha:0.4, duration:450, yoyo:true, repeat:1 });
 
         this.time.delayedCall(1700, () => {
@@ -501,16 +530,16 @@ export class VillagerScene extends Phaser.Scene {
     });
   }
 
-  // ─── 主人公の歩き入場（タイトルと同じ6フレーム） ────────────
+  // ─── 主人公の歩き入場 ────────────────────────────────────────
   private animateHeroEntry(W: number, groundY: number, onArrive: () => void) {
     const validKeys = ALL_WALK_KEYS.filter(
       k => this.textures.exists(k) && this.textures.get(k).key !== '__MISSING'
     );
     if (validKeys.length === 0) { onArrive(); return; }
 
-    const hero = this.add.image(-90, groundY, validKeys[0]).setOrigin(0.5, 1).setScale(1.2);
+    const hero = this.add.image(-90, groundY, validKeys[0]).setOrigin(0.5, 1).setScale(1.2).setDepth(5);
     const fixedW = hero.displayWidth, fixedH = hero.displayHeight;
-    const shadow = this.add.ellipse(-90, groundY + 4, 50, 12, 0x000000, 0.32);
+    const shadow = this.add.ellipse(-90, groundY + 4, 50, 12, 0x000000, 0.32).setDepth(4);
 
     let fi = 0;
     const walkTimer = this.time.addEvent({
@@ -524,7 +553,7 @@ export class VillagerScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: [hero, shadow],
-      x: W * 0.30,
+      x: W * 0.13,
       duration: 1800,
       ease: 'Linear',
       onComplete: () => {
@@ -547,7 +576,7 @@ export class VillagerScene extends Phaser.Scene {
   private addBackButton(W: number) {
     const btn = this.add.text(W-16, 16, '[ タイトルへ ]', {
       fontSize:'15px', fontFamily:'monospace', color:'#4488ff',
-    }).setOrigin(1, 0).setInteractive({ useHandCursor:true });
+    }).setOrigin(1, 0).setInteractive({ useHandCursor:true }).setDepth(15);
     btn.on('pointerover', () => btn.setColor('#88bbff'));
     btn.on('pointerout',  () => btn.setColor('#4488ff'));
     btn.on('pointerdown', () => {
