@@ -15,20 +15,20 @@ class VillageEventService
 
   def execute
     if @event[:correct_weathers].include?(@weather)
-      outcome  = 'success'
+      outcome  = "success"
       hp_delta = @event[:hp_reward]
       new_hp   = [ @player_hp + hp_delta, @player_max_hp ].min
       message  = @event[:success_message]
     elsif @event[:penalty_weathers].include?(@weather)
-      outcome  = 'penalty'
+      outcome  = "penalty"
       hp_delta = -@event[:hp_penalty]
       new_hp   = [ @player_hp + hp_delta, 0 ].max
       message  = @event[:penalty_message]
     else
-      outcome  = 'neutral'
+      outcome  = "neutral"
       hp_delta = 0
       new_hp   = @player_hp
-      message  = '天候の影響はなかった'
+      message  = "天候の影響はなかった"
     end
 
     { outcome: outcome, hp_delta: hp_delta, player_current_hp: new_hp, message: message }
