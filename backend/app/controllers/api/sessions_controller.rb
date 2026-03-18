@@ -13,6 +13,8 @@ module Api
         map_nodes:       nodes,
         completed_nodes: [],
         player_spells:   ALL_WEATHERS.sample(2)
+        player_hp:       5,
+        player_max_hp:   5
       )
 
       render json: session_json(session, nodes), status: :created
