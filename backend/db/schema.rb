@@ -10,9 +10,19 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_17_203307) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_18_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "enemies", force: :cascade do |t|
+    t.integer "attack_power", default: 10, null: false
+    t.datetime "created_at", null: false
+    t.string "immune_weathers", default: [], null: false, array: true
+    t.integer "max_hp", default: 30, null: false
+    t.string "name", null: false
+    t.datetime "updated_at", null: false
+    t.string "weakness_weathers", default: [], null: false, array: true
+  end
 
   create_table "game_sessions", force: :cascade do |t|
     t.integer "completed_nodes", default: [], null: false, array: true
@@ -20,6 +30,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_17_203307) do
     t.datetime "expires_at", null: false
     t.boolean "finished", default: false, null: false
     t.jsonb "map_nodes", default: [], null: false
+    t.integer "player_hp", default: 3, null: false
+    t.integer "player_max_hp", default: 3, null: false
     t.integer "player_node_id", default: 0, null: false
     t.string "session_token", null: false
     t.datetime "updated_at", null: false

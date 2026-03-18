@@ -29,14 +29,20 @@ export interface BattleRequest {
   weather: string;
 }
 
-export interface AttackResult {
+export interface PlayerAttackResult {
+  damage: number;
+  result: 'weakness' | 'hit' | 'immune';
+}
+
+export interface EnemyAttackResult {
   damage: number;
   result: 'hit' | 'miss';
+  hit_probability: number;
 }
 
 export interface BattleResponse {
-  player_attack: AttackResult;
-  enemy_attack: AttackResult;
+  player_attack: PlayerAttackResult;
+  enemy_attack: EnemyAttackResult;
   enemy_current_hp: number;
   player_current_hp: number;
   battle_result: 'win' | 'game_over' | 'ongoing';

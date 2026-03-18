@@ -6,6 +6,8 @@ import type {
   BattleResponse,
 } from './types';
 
+export type { BattleRequest, BattleResponse, PlayerAttackResult, EnemyAttackResult } from './types';
+
 // ── エラー型 ───────────────────────────────────────────────────────
 
 export class ApiError extends Error {

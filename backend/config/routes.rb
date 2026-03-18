@@ -6,5 +6,6 @@ Rails.application.routes.draw do
     resources :sessions, param: :token, only: [ :create, :show, :update ]
     resource  :map, only: [ :show ]
     resources :villages, only: [ :create ]
+    resources :battles, only: [ :create ]
   end
 end

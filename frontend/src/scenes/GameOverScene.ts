@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { usePlayerStore } from '../store/playerStore';
+import { useGameStore } from '../store/gameStore';
 
 export class GameOverScene extends Phaser.Scene {
   constructor() { super({ key: 'GameOverScene' }); }
@@ -44,8 +45,41 @@ export class GameOverScene extends Phaser.Scene {
       shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 6, fill: true },
     }).setOrigin(0.5).setAlpha(0);
 
+    // もう一度遊ぶボタン
+    const retryBtn = this.add.text(W / 2, H * 0.60, '◆  もう一度遊ぶ  ◆', {
+      fontSize: '24px',
+      fontFamily: '"Georgia","Times New Roman",serif',
+      color: '#97d4a8',
+      stroke: '#003a0d',
+      strokeThickness: 4,
+      backgroundColor: '#001a0acc',
+      padding: { x: 28, y: 14 },
+      shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 4, fill: true },
+    }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
+
+    retryBtn.on('pointerover', () => retryBtn.setStyle({ color: '#ffffff', backgroundColor: '#003a1acc' }));
+    retryBtn.on('pointerout',  () => retryBtn.setStyle({ color: '#97d4a8', backgroundColor: '#001a0acc' }));
+    retryBtn.on('pointerdown', async () => {
+      usePlayerStore.getState().reset();
+
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      localStorage.setItem('session_token', data.session_token);
+
+      const store = useGameStore.getState();
+      store.setNodes(data.nodes);
+      store.setPlayerNodeId(data.player_node_id);
+      store.setCompletedNodes(data.completed_nodes);
+
+      this.cameras.main.fade(600, 0, 0, 0);
+      this.time.delayedCall(600, () => this.scene.start('MapScene'));
+    });
+
     // タイトルへ戻るボタン
-    const btn = this.add.text(W / 2, H * 0.66, '◆  タイトルへ戻る  ◆', {
+    const btn = this.add.text(W / 2, H * 0.74, '◆  タイトルへ戻る  ◆', {
       fontSize: '24px',
       fontFamily: '"Georgia","Times New Roman",serif',
       color: '#e8c97a',
@@ -67,9 +101,10 @@ export class GameOverScene extends Phaser.Scene {
 
     // フェードイン
     this.cameras.main.fadeIn(400);
-    this.tweens.add({ targets: title, alpha: 1, duration: 600, ease: 'Power2' });
-    this.tweens.add({ targets: sub,   alpha: 1, duration: 600, delay: 400, ease: 'Power2' });
-    this.tweens.add({ targets: btn,   alpha: 1, duration: 600, delay: 800, ease: 'Power2' });
+    this.tweens.add({ targets: title,    alpha: 1, duration: 600, ease: 'Power2' });
+    this.tweens.add({ targets: sub,      alpha: 1, duration: 600, delay: 400,  ease: 'Power2' });
+    this.tweens.add({ targets: retryBtn, alpha: 1, duration: 600, delay: 800,  ease: 'Power2' });
+    this.tweens.add({ targets: btn,      alpha: 1, duration: 600, delay: 1000, ease: 'Power2' });
 
     // GAME OVER の点滅
     this.tweens.add({

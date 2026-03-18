@@ -34,7 +34,8 @@ class MapGenerator
   end
 
   def new_node(id, x, y)
-    { id: id, x: x, y: y, type: nil, connections: [], completed: false, village_event: nil }
+    { id: id, x: x, y: y, type: nil, connections: [], completed: false, village_event: nil,
+      enemy_id: nil, enemy_name: nil, current_hp: nil }
   end
 
   # min_node_distance を満たす座標をランダムに決める（最大 50 回リトライ）
@@ -194,7 +195,11 @@ class MapGenerator
           node[:type]          = ::Constants::MapNode::VILLAGER
           node[:village_event] = MAP_CONSTANTS[:village_event_types].sample
         else
-          node[:type] = ::Constants::MapNode::ENEMY
+          enemy = Enemy.order("RANDOM()").first
+          node[:type]       = ::Constants::MapNode::ENEMY
+          node[:enemy_id]   = enemy.id
+          node[:enemy_name] = enemy.name
+          node[:current_hp] = enemy.max_hp
         end
       end
     end

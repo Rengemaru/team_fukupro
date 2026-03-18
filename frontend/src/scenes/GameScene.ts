@@ -1,5 +1,9 @@
 import Phaser from 'phaser';
 import { usePlayerStore } from '../store/playerStore';
+import { type EnemyType, ENEMY_TYPES, ENEMY_CONFIG, ENEMY_ID_TO_TYPE } from '../constants/enemies';
+import { useGameStore } from '../store/gameStore';
+import { apiClient } from '../api/apiClient';
+import type { BattleResponse } from '../api/apiClient';
 
 const SPRITE_SCALE     = 1.7;
 const ATK_SPRITE_SCALE = 2.0;
@@ -8,11 +12,11 @@ const IDLE_KEYS = ['gale_idle','gale_idle1','gale_idle2','gale_idle3'] as const;
 type WeatherType = 'thunder' | 'fire' | 'water' | 'wind' | 'hail';
 
 const API_WEATHER_MAP: Record<string, WeatherType> = {
-  thunderstorm: 'thunder',
-  rain:         'water',
-  wind:         'wind',
-  sunny:        'fire',
-  hail:         'hail',
+  thunder: 'thunder',
+  water:   'water',
+  wind:    'wind',
+  fire:    'fire',
+  hail:    'hail',
 };
 
 const HAIL_KEYS = ['gale_atk_hyou', 'gale_atk_hyou1', 'gale_atk_hyou2'] as const;
@@ -31,25 +35,6 @@ const WEATHER_CONFIG: Record<WeatherType, {
 };
 
 // ─── 敵の種類 ─────────────────────────────────────────────
-type EnemyType = 'slime' | 'zombie' | 'sand_golem' | 'fire_fairy' | 'armored_ghost';
-
-const ENEMY_TYPES: EnemyType[] = ['slime', 'zombie', 'sand_golem', 'fire_fairy', 'armored_ghost'];
-
-const ENEMY_CONFIG: Record<EnemyType, {
-  name: string;
-  hp: number;
-  color: number;
-  // null = プロシージャル生成（スライム）、[frame1key, frame2key] = 画像使用
-  imageKeys: [string, string] | null;
-  // 画像の表示サイズ [width, height]（スライムは未使用）
-  displaySize: [number, number];
-}> = {
-  slime:         { name: 'スライム',    hp: 30, color: 0x22dd22, imageKeys: null,                             displaySize: [0,   0  ] },
-  zombie:        { name: 'ゾンビ',      hp: 40, color: 0x55aa66, imageKeys: ['zonbi1',       'zonbi2'      ], displaySize: [130, 265] },
-  sand_golem:    { name: '砂の魔人',    hp: 50, color: 0xddbb55, imageKeys: ['sunanomazin1', 'sunanomazin2'], displaySize: [175, 210] },
-  fire_fairy:    { name: '炎の妖精',    hp: 25, color: 0xff6622, imageKeys: ['yousei1',      'yousei2'     ], displaySize: [100, 100] },
-  armored_ghost: { name: '鎧のお化け', hp: 45, color: 0x7788aa, imageKeys: ['yoroi1',       'yoroi2'      ], displaySize: [145, 230] },
-};
 
 export class GameScene extends Phaser.Scene {
   private currentEnemyType: EnemyType = 'slime';
@@ -66,6 +51,7 @@ export class GameScene extends Phaser.Scene {
   private playerBaseY = 0;
   private enemyFrameTimer?: Phaser.Time.TimerEvent;
 
+  private playerHpText!: Phaser.GameObjects.Text;
   private skyGfx!: Phaser.GameObjects.Graphics;
   private idleSprite!: Phaser.GameObjects.Image;
   private castImage!: Phaser.GameObjects.Image;
@@ -75,6 +61,7 @@ export class GameScene extends Phaser.Scene {
   private hailDisplayW = 0;
   private hailDisplayH = 0;
   private currentNodeId = -1;
+  private battleResultPromise: Promise<BattleResponse> | null = null;
   private activeWeatherType: WeatherType | null = null;
   private weatherBtnRedraw: Partial<Record<WeatherType, (hover: boolean) => void>> = {};
 
@@ -99,12 +86,14 @@ export class GameScene extends Phaser.Scene {
     this.load.on('loaderror', (f: Phaser.Loader.File) => console.warn('[GameScene] load failed:', f.key));
   }
 
-  create(data?: { nodeId?: number }) {
+  create(data?: { nodeId?: number; enemyId?: number; enemyName?: string; enemyHp?: number }) {
     this.currentNodeId = data?.nodeId ?? -1;
-    // ランダムで敵を選ぶ
-    this.currentEnemyType = ENEMY_TYPES[Phaser.Math.Between(0, ENEMY_TYPES.length - 1)];
+    // enemyId が渡された場合は対応する EnemyType を使う、なければランダム
+    this.currentEnemyType = (data?.enemyId && ENEMY_ID_TO_TYPE[data.enemyId])
+      ? ENEMY_ID_TO_TYPE[data.enemyId]
+      : ENEMY_TYPES[Phaser.Math.Between(0, ENEMY_TYPES.length - 1)];
     const enemyCfg = ENEMY_CONFIG[this.currentEnemyType];
-    this.slimeHp    = enemyCfg.hp;
+    this.slimeHp    = data?.enemyHp ?? enemyCfg.hp;
     this.slimeMaxHp = enemyCfg.hp;
     this.attackEnabled = true;
 
@@ -122,6 +111,7 @@ export class GameScene extends Phaser.Scene {
     this.createPlayer(this.playerX, this.playerBaseY);
     this.createEnemy(this.slimeX, this.slimeY);
     this.createHUD(W, H);
+    this.updatePlayerHpDisplay();
     this.createWeatherButtons(W, H);
     this.createBackButton(W);
 
@@ -277,7 +267,7 @@ export class GameScene extends Phaser.Scene {
     fi.fillStyle(0xe0e8ff); fi.fillRect(22, hudY+14, 28, 10);
     fi.lineStyle(2, 0x4488ff); fi.strokeRoundedRect(12, hudY+10, 48, 48, 4);
     this.add.text(68, hudY+12, 'Gale', { fontSize:'14px', fontFamily:'monospace', color:'#aaddff' });
-    this.add.text(68, hudY+30, '♥ ♥ ♥ ♥ ♥', { fontSize:'18px', fontFamily:'monospace', color:'#ee2222' });
+    this.playerHpText = this.add.text(68, hudY+30, '♥ ♥ ♥ ♥ ♥', { fontSize:'18px', fontFamily:'monospace', color:'#ee2222' });
     const mpBg = this.add.graphics();
     mpBg.fillStyle(0x001133); mpBg.fillRect(68, hudY+50, 120, 10);
     mpBg.fillStyle(0x2244cc); mpBg.fillRect(68, hudY+50, 90, 10);
@@ -287,6 +277,12 @@ export class GameScene extends Phaser.Scene {
       fontSize:'14px', fontFamily:'"Yu Gothic","YuGothic",monospace',
       color:'#ffffff', stroke:'#000', strokeThickness:2, align:'center',
     }).setOrigin(0.5);
+  }
+
+  private updatePlayerHpDisplay() {
+    const { hp, maxHP } = usePlayerStore.getState();
+    const hearts = Array(maxHP).fill(null).map((_, i) => i < hp ? '♥' : '♡').join(' ');
+    this.playerHpText.setText(hearts);
   }
 
   private createWeatherButtons(W: number, H: number) {
@@ -348,27 +344,62 @@ export class GameScene extends Phaser.Scene {
     this.showSprite('cast');
     this.battleLog.setText(`${cfg.label}の天候を呼んだ！`);
 
+    // APIコールをアニメーションと並行して開始
+    const token = localStorage.getItem('session_token') ?? '';
+    this.battleResultPromise = apiClient.postBattle({
+      session_token: token,
+      node_id: this.currentNodeId,
+      weather: type,
+    });
+
     this.time.delayedCall(250, () => {
       if (type !== 'wind') this.showSprite(type);
       this.battleLog.setText(`${cfg.label}の力を放った！`);
       this.time.delayedCall(180, () => {
-        this.launchProjectile(type, cfg.projColor, () => {
-          const dmg = Phaser.Math.Between(6, 16);
-          this.onProjectileHit(dmg, cfg.projColor);
+        this.launchProjectile(type, cfg.projColor, async () => {
+          let res: BattleResponse;
+          try {
+            res = await this.battleResultPromise!;
+          } catch {
+            // API失敗時のフォールバック
+            const dmg = Phaser.Math.Between(6, 16);
+            this.onProjectileHit(dmg, cfg.projColor);
+            this.time.delayedCall(400, () => this.slimeCounterAttack());
+            return;
+          }
+
+          // 敵HPをAPIの値で更新
+          this.onProjectileHit(res.player_attack.damage, cfg.projColor, res.enemy_current_hp);
+          // ストアのノードHPも更新
+          if (this.currentNodeId >= 0) {
+            useGameStore.getState().updateNodeHp(this.currentNodeId, res.enemy_current_hp);
+          }
+
+          if (res.battle_result === 'win') {
+            // onProjectileHit → onSlimeDefeated で処理される
+            return;
+          }
+
+          // 反撃（ongoing / game_over）
+          this.time.delayedCall(400, () => {
+            this.slimeCounterAttack(
+              res.enemy_attack.result === 'miss',
+              res.player_current_hp,
+              res.battle_result === 'game_over',
+            );
+          });
         });
       });
     });
 
-    this.time.delayedCall(1100, () => this.showSprite('idle'));
-
-    // ④ 1.3秒後にスライムが反撃
-    this.time.delayedCall(1300, () => {
-      if (this.slimeHp > 0) this.slimeCounterAttack();
-    });
+    // アイドルに戻す（attackEnabled は変更しない）
+    this.time.delayedCall(1100, () => this.showSprite('idle', false));
   }
 
   // ─── スライム反撃処理 ──────────────────────────────────────
-  private slimeCounterAttack() {
+  private slimeCounterAttack(isMiss = false, playerCurrentHp?: number, isGameOver = false) {
+    const enemyName = ENEMY_CONFIG[this.currentEnemyType].name;
+
     // スライムが左に突進するアニメ
     this.tweens.add({
       targets: this.slimeSprite,
@@ -378,33 +409,45 @@ export class GameScene extends Phaser.Scene {
       ease: 'Quad.easeOut',
     });
 
-    this.battleLog.setText('スライムの攻撃！ダメージを受けた！');
+    this.battleLog.setText(isMiss ? `${enemyName}の攻撃！ミス！` : `${enemyName}の攻撃！ダメージを受けた！`);
 
-    // プレイヤーへのヒットエフェクト
-    const hit = this.add.circle(this.playerX + 30, this.playerBaseY - 60, 22, 0x22dd22, 0.8);
-    this.tweens.add({
-      targets: hit,
-      scaleX: 2.5,
-      scaleY: 2.5,
-      alpha: 0,
-      duration: 350,
-      onComplete: () => hit.destroy(),
-    });
+    // プレイヤーへのヒットエフェクト（ミスはスキップ）
+    if (!isMiss) {
+      const hit = this.add.circle(this.playerX + 30, this.playerBaseY - 60, 22, 0x22dd22, 0.8);
+      this.tweens.add({
+        targets: hit,
+        scaleX: 2.5,
+        scaleY: 2.5,
+        alpha: 0,
+        duration: 350,
+        onComplete: () => hit.destroy(),
+      });
+    }
 
-    // Zustand の dealDamage でハートを1つ減らす
-    usePlayerStore.getState().dealDamage();
+    // プレイヤーHPを更新して表示に反映
+    if (playerCurrentHp !== undefined) {
+      usePlayerStore.getState().setHp(playerCurrentHp);
+    } else {
+      usePlayerStore.getState().dealDamage();
+    }
+    this.updatePlayerHpDisplay();
 
-    // HP ゼロなら GameOver シーンへ遷移
-    if (usePlayerStore.getState().hp <= 0) {
+    // ゲームオーバー判定
+    const hpAfter = playerCurrentHp ?? usePlayerStore.getState().hp;
+    if (isGameOver || hpAfter <= 0) {
       this.attackEnabled = false;
       this.time.delayedCall(600, () => {
+        localStorage.removeItem('session_token');
+        usePlayerStore.getState().reset();
         this.cameras.main.fade(500, 0, 0, 0);
         this.time.delayedCall(500, () => this.scene.start('GameOverScene'));
       });
+    } else {
+      this.attackEnabled = true;
     }
   }
 
-  private showSprite(target: WeatherType | 'idle' | 'cast') {
+  private showSprite(target: WeatherType | 'idle' | 'cast', reenableAttack = true) {
     this.hailTimer?.remove();
     this.hailTimer = undefined;
 
@@ -415,7 +458,7 @@ export class GameScene extends Phaser.Scene {
 
     if (target === 'idle') {
       this.idleSprite.setVisible(true);
-      this.attackEnabled = true;
+      if (reenableAttack) this.attackEnabled = true;
     } else if (target === 'cast') {
       this.castImage.setVisible(true);
     } else if (target === 'hail') {
@@ -619,9 +662,9 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private onProjectileHit(dmg: number, color: number) {
+  private onProjectileHit(dmg: number, color: number, apiEnemyHp?: number) {
     const enemyName = ENEMY_CONFIG[this.currentEnemyType].name;
-    this.slimeHp = Math.max(0, this.slimeHp - dmg);
+    this.slimeHp = apiEnemyHp !== undefined ? apiEnemyHp : Math.max(0, this.slimeHp - dmg);
     let flash = 0;
     const doFlash = () => {
       flash++;
@@ -668,14 +711,37 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5).setInteractive({ useHandCursor:true });
     btn.on('pointerover', () => btn.setColor('#ffffff'));
     btn.on('pointerout',  () => btn.setColor('#aaddff'));
-    btn.on('pointerdown', () => {
-      const reg = this.game.registry;
-      const done: number[] = reg.get('completedNodes') ?? [];
-      if (this.currentNodeId >= 0 && !done.includes(this.currentNodeId)) done.push(this.currentNodeId);
-      reg.set('completedNodes', done);
-      reg.set('playerNodeId', this.currentNodeId);
+    btn.on('pointerdown', async () => {
+      const store = useGameStore.getState();
+      const token = localStorage.getItem('session_token');
+      let isGoal = false;
+
+      if (this.currentNodeId >= 0 && token) {
+        const completedNodes = [...store.completedNodes, this.currentNodeId];
+        store.setCompletedNodes(completedNodes);
+
+        await fetch(`/api/sessions/${token}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            player_node_id: this.currentNodeId,
+            completed_nodes: completedNodes,
+          }),
+        });
+
+        const currentNode = store.nodes.find(n => n.id === this.currentNodeId);
+        isGoal = currentNode?.type === 'goal';
+      }
+
       this.cameras.main.fade(500, 0, 0, 0);
-      this.time.delayedCall(500, () => this.scene.start('MapScene'));
+
+      if (isGoal) {
+        localStorage.removeItem('session_token');
+        store.reset();
+        this.time.delayedCall(500, () => this.scene.start('ClearScene'));
+      } else {
+        this.time.delayedCall(500, () => this.scene.start('MapScene'));
+      }
     });
   }
 
