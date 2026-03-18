@@ -4,9 +4,12 @@ import type {
   WeatherResponse,
   BattleRequest,
   BattleResponse,
+  VillageRequest,
+  VillageResponse,
 } from './types';
 
 export type { BattleRequest, BattleResponse, PlayerAttackResult, EnemyAttackResult } from './types';
+export type { VillageRequest, VillageResponse } from './types';
 
 // ── エラー型 ───────────────────────────────────────────────────────
 
@@ -74,6 +77,15 @@ class ApiClient {
     return this.request<WeatherResponse>('/api/weather', {
       method: 'POST',
       body: JSON.stringify({ frames }),
+    });
+  }
+
+  // ── Village ───────────────────────────────────────────────────────
+
+  postVillage(body: VillageRequest): Promise<VillageResponse> {
+    return this.request<VillageResponse>('/api/villages', {
+      method: 'POST',
+      body: JSON.stringify(body),
     });
   }
 

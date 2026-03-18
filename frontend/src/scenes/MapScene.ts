@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { useGameStore } from '../store/gameStore';
 import type { MapNode } from '../store/gameStore';
+import { usePlayerStore } from '../store/playerStore';
 
 export class MapScene extends Phaser.Scene {
   constructor() { super({ key: 'MapScene' }); }
@@ -31,6 +32,8 @@ export class MapScene extends Phaser.Scene {
     nodes: MapNode[];
     player_node_id: number;
     completed_nodes: number[];
+    player_hp: number;
+    player_max_hp: number;
   }> {
     const token = localStorage.getItem('session_token');
 
@@ -54,12 +57,13 @@ export class MapScene extends Phaser.Scene {
     return data;
   }
 
-  private syncStore(data: { nodes: MapNode[]; player_node_id: number; completed_nodes: number[]; player_spells?: string[] }) {
+  private syncStore(data: { nodes: MapNode[]; player_node_id: number; completed_nodes: number[]; player_spells?: string[]; player_hp?: number }) {
     const store = useGameStore.getState();
     store.setNodes(data.nodes);
     store.setPlayerNodeId(data.player_node_id);
     store.setCompletedNodes(data.completed_nodes);
     if (data.player_spells) store.setPlayerSpells(data.player_spells);
+    if (data.player_hp != null) usePlayerStore.getState().setHp(data.player_hp);
   }
 
   // ─── 実描画 ───────────────────────────────────────────────
@@ -265,8 +269,13 @@ export class MapScene extends Phaser.Scene {
       store.reset();
       this.time.delayedCall(500, () => this.scene.start('ClearScene'));
     } else {
-      const villagerTypes = ['man', 'woman', 'beast_attack', 'sailing_ship', 'drought', 'heavy_rain'];
-      const villagerType = villagerTypes[node.id % villagerTypes.length];
+      const EVENT_TO_VILLAGER_TYPE: Record<string, string> = {
+        drought:    'drought',
+        heavy_rain: 'heavy_rain',
+        sailing:    'sailing_ship',
+        beast:      'beast_attack',
+      };
+      const villagerType = EVENT_TO_VILLAGER_TYPE[node.village_event ?? ''] ?? 'man';
       this.time.delayedCall(500, () => {
         this.scene.start('VillagerScene', { nodeId: node.id, villagerType });
       });

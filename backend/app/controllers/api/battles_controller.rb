@@ -28,7 +28,7 @@ module Api
 
     private
 
-    ALL_WEATHERS = %w[thunder fire water wind hail].freeze
+    ALL_WEATHERS = %w[thunder sunny rain wind hail].freeze
 
     def update_session(session, node, result)
       updated_nodes = session.map_nodes.map do |n|

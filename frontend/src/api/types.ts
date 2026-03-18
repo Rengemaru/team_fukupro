@@ -9,6 +9,8 @@ export interface SessionResponse {
   completed_nodes: number[];
   finished: boolean;
   player_spells: string[];
+  player_hp: number;
+  player_max_hp: number;
 }
 
 export interface UpdateSessionRequest {
@@ -20,6 +22,21 @@ export interface UpdateSessionRequest {
 
 export interface WeatherResponse {
   weather: string;
+}
+
+// ── Village ───────────────────────────────────────────────────────
+
+export interface VillageRequest {
+  session_token: string;
+  node_id: number;
+  weather: string;
+}
+
+export interface VillageResponse {
+  outcome: 'success' | 'penalty' | 'neutral';
+  hp_delta: number;
+  player_current_hp: number;
+  message: string;
 }
 
 // ── Battle ────────────────────────────────────────────────────────

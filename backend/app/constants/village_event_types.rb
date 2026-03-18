@@ -1,8 +1,8 @@
 VILLAGE_EVENT_TYPES = {
   "drought" => {
     label:            "村の干ばつ",
-    correct_weathers: [ "water", "hail" ],
-    penalty_weathers: [ "fire" ],
+    correct_weathers: [ "rain", "hail" ],
+    penalty_weathers: [ "sunny" ],
     hp_reward:        1,
     hp_penalty:       1,
     success_message:  "恵みの雨が大地を潤した！",
@@ -10,8 +10,8 @@ VILLAGE_EVENT_TYPES = {
   },
   "heavy_rain" => {
     label:            "大雨",
-    correct_weathers: [ "fire" ],
-    penalty_weathers: [ "water", "thunder" ],
+    correct_weathers: [ "sunny" ],
+    penalty_weathers: [ "rain", "thunder" ],
     hp_reward:        1,
     hp_penalty:       1,
     success_message:  "晴れ間が大雨を和らげた！",
@@ -29,7 +29,7 @@ VILLAGE_EVENT_TYPES = {
   "beast" => {
     label:            "獣の群れ",
     correct_weathers: [ "thunder" ],
-    penalty_weathers: [ "fire" ],
+    penalty_weathers: [ "sunny" ],
     hp_reward:        1,
     hp_penalty:       1,
     success_message:  "雷鳴が獣の群れを追い払った！",

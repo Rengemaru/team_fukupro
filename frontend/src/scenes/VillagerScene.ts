@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import { usePlayerStore } from '../store/playerStore';
 import { useGameStore } from '../store/gameStore';
+import { apiClient } from '../api/apiClient';
 
-type WeatherChoice = 'thunder' | 'fire' | 'water' | 'wind' | 'hail';
+type WeatherChoice = 'thunder' | 'sunny' | 'rain' | 'wind' | 'hail';
 type VillagerType = 'man' | 'woman' | 'beast_attack' | 'sailing_ship' | 'drought' | 'heavy_rain';
 
 const WEATHER_BTN: Record<WeatherChoice, {
@@ -12,10 +13,10 @@ const WEATHER_BTN: Record<WeatherChoice, {
   thunder: { label:'雷', emoji:'⚡', btnColor:0x1a2255, btnGlow:0x8888ff,
     manResult: '⚡ 雷が轟き、魔物を追い払った！\n「す、すごい…！ありがとう！」',
     womanResult: '⚡ 雷が空を裂き、魔物が逃げ去った！\n「助かりました…！」' },
-  fire:    { label:'晴れ', emoji:'☀️', btnColor:0x2a2200, btnGlow:0xffcc00,
+  sunny:   { label:'晴れ', emoji:'☀️', btnColor:0x2a2200, btnGlow:0xffcc00,
     manResult: '☀️ 眩い光が周囲を照らし、魔物を退けた！\n「熱いけど…命拾いした！」',
     womanResult: '☀️ 陽光の壁が魔物の道を塞いだ！\n「あなたは天候の使い手…！」' },
-  water:   { label:'雨', emoji:'💧', btnColor:0x002244, btnGlow:0x44aaff,
+  rain:    { label:'雨', emoji:'💧', btnColor:0x002244, btnGlow:0x44aaff,
     manResult: '💧 急流が魔物を押し流した！\n「川が…あいつを飲み込んだ！」',
     womanResult: '💧 水の盾が魔物の爪を弾いた！\n「ありがとう、怪我はない…！」' },
   wind:    { label:'風', emoji:'🌀', btnColor:0x003322, btnGlow:0x44ffaa,
@@ -41,11 +42,11 @@ const SPECIAL_EVENTS: Record<'beast_attack' | 'sailing_ship' | 'drought' | 'heav
     titleStr: '⚠ 獣たちが村を襲っている！',
     speechStr: '「たすけてくれ！獣の群れが\n　村に押し寄せてきた…！\n　天候の力で追い払って！」',
     correctChoices: ['thunder'],
-    penaltyChoices: ['fire'],
+    penaltyChoices: ['sunny'],
     results: {
       thunder: '⚡ 天空を裂く雷が獣たちを直撃！\n獣たちは悲鳴を上げて散り散りに逃げ去った！\n「す、すごい…村が救われた！ありがとう！」',
-      fire:    '☀️ 晴れで気温が上がり、獣が活発になった！\n手に負えなくなってしまった…\n💢 村人たちに怒られてボコボコにされた！ HP -1',
-      water:   '💧 水流が獣を一時遠ざけたが…\n獣たちは川を泳いで戻ってきた。\n「水では止められない…別の手を！」',
+      sunny:   '☀️ 晴れで気温が上がり、獣が活発になった！\n手に負えなくなってしまった…\n💢 村人たちに怒られてボコボコにされた！ HP -1',
+      rain:    '💧 水流が獣を一時遠ざけたが…\n獣たちは川を泳いで戻ってきた。\n「水では止められない…別の手を！」',
       wind:    '🌀 嵐の風が獣を遠ざけたが…\n大きな獣は踏ん張り、また迫ってきた。\n「風だけでは足りない…！」',
       hail:    '🌨 雹が獣たちに降り注いだが…\n毛皮に守られた獣には効果が薄かった。\n「もっと強力な何かが必要だ！」',
     },
@@ -59,8 +60,8 @@ const SPECIAL_EVENTS: Record<'beast_attack' | 'sailing_ship' | 'drought' | 'heav
     results: {
       wind:    '🌀 力強い風が帆いっぱいに吹き込み…\n帆船がゆっくりと、力強く動き出した！\n「出港できる…！ありがとう、天候使い！」',
       thunder: '⚡ 雷が落ちてマストが折れてしまった！\n修理費が莫大になってしまい…\n💢 怒り狂った船長にボコボコにされた！ HP -1',
-      fire:    '☀️ 太陽が照りつけるが、帆は動かない…\n熱さで船員が倒れそうになった。\n「晴れは要らない…風を！」',
-      water:   '💧 波が激しくなったが向かい風になった！\n船はむしろ港に押し返されてしまった。\n「水ではなく風が必要なんだ！」',
+      sunny:   '☀️ 太陽が照りつけるが、帆は動かない…\n熱さで船員が倒れそうになった。\n「晴れは要らない…風を！」',
+      rain:    '💧 波が激しくなったが向かい風になった！\n船はむしろ港に押し返されてしまった。\n「水ではなく風が必要なんだ！」',
       hail:    '🌨 雹が甲板を叩き、船員が避難した…\n嵐では出港できない。\n「穏やかな風を…お願いだ！」',
     },
   },
@@ -68,12 +69,12 @@ const SPECIAL_EVENTS: Record<'beast_attack' | 'sailing_ship' | 'drought' | 'heav
     bgKey: 'drought_village',
     titleStr: '🌵 村が干ばつに苦しんでいる！',
     speechStr: '「畑が全滅だ…\n　作物が枯れ果てた…！\n　天候の力で村を\n　救ってくれ！」',
-    correctChoices: ['water', 'hail'],
-    penaltyChoices: ['fire'],
+    correctChoices: ['rain', 'hail'],
+    penaltyChoices: ['sunny'],
     results: {
-      water:   '💧 恵みの雨が大地に降り注いだ！\n干からびた畑に水が満ちていく…\n「ありがとう！作物が生き返った！」',
+      rain:    '💧 恵みの雨が大地に降り注いだ！\n干からびた畑に水が満ちていく…\n「ありがとう！作物が生き返った！」',
       hail:    '🌨 雹が降り注ぎ大地を冷やした！\nその後に大量の雪解け水が流れ込んだ！\n「雹まで役に立つとは…！ありがとう！」',
-      fire:    '☀️ 炎天下でさらに乾燥が加速した！\n残っていた作物まで全滅してしまった…\n💢 激怒した村人たちにボコボコにされた！ HP -1',
+      sunny:   '☀️ 炎天下でさらに乾燥が加速した！\n残っていた作物まで全滅してしまった…\n💢 激怒した村人たちにボコボコにされた！ HP -1',
       thunder: '⚡ 雷が落ちたが雨は来なかった…\n乾いた大地は変わらないまま。\n「雷だけでは水は湧かない…」',
       wind:    '🌀 熱風が吹いて、さらに乾燥が進んだ…\nほこりだらけになってしまった。\n「風じゃなくて水が欲しいんだ！」',
     },
@@ -82,11 +83,11 @@ const SPECIAL_EVENTS: Record<'beast_attack' | 'sailing_ship' | 'drought' | 'heav
     bgKey: 'heavy_rain_village',
     titleStr: '🌧 村が大雨で水浸しだ！',
     speechStr: '「洪水が来る…！\n　村が沈んでしまう…\n　天候の力で何とか\n　してくれ！」',
-    correctChoices: ['fire'],
-    penaltyChoices: ['water', 'thunder'],
+    correctChoices: ['sunny'],
+    penaltyChoices: ['rain', 'thunder'],
     results: {
-      fire:    '☀️ 強い日差しが雲を吹き散らした！\n雨が止み、青空が村に戻ってきた！\n「奇跡だ…！ありがとう！村が救われた！」',
-      water:   '💧 さらに雨が強まって洪水になった！\n村の家が流されてしまった…\n💢 全財産を失った村人にボコボコにされた！ HP -1',
+      sunny:   '☀️ 強い日差しが雲を吹き散らした！\n雨が止み、青空が村に戻ってきた！\n「奇跡だ…！ありがとう！村が救われた！」',
+      rain:    '💧 さらに雨が強まって洪水になった！\n村の家が流されてしまった…\n💢 全財産を失った村人にボコボコにされた！ HP -1',
       thunder: '⚡ 雷雨になってさらに状況が悪化！\n落雷で家が燃え水も溢れ大惨事に…\n💢 泣き叫ぶ村人たちにボコボコにされた！ HP -1',
       wind:    '🌀 強風で屋根が吹き飛んでしまった…\n雨も降り続けて二重苦になった。\n「風も雨もいらない！晴れを！」',
       hail:    '🌨 雹まで降ってきて大惨事に…\n雨と雹で畑が壊滅してしまった。\n「もう何もかもがダメだ…！」',
@@ -104,11 +105,11 @@ const WALK_FILE: Record<string, string> = {
 };
 
 const VILLAGER_WEATHER_MAP: Record<string, WeatherChoice> = {
-  thunderstorm: 'thunder',
-  rain:         'water',
-  wind:         'wind',
-  sunny:        'fire',
-  hail:         'hail',
+  thunder: 'thunder',
+  rain:    'rain',
+  wind:    'wind',
+  sunny:   'sunny',
+  hail:    'hail',
 };
 
 export class VillagerScene extends Phaser.Scene {
@@ -276,7 +277,7 @@ export class VillagerScene extends Phaser.Scene {
   ) {
     const add = (go: Phaser.GameObjects.GameObject) => { container.add(go); return go; };
     const ownedSpells = useGameStore.getState().playerSpells;
-    const allChoices: WeatherChoice[] = ['thunder','fire','water','wind','hail'];
+    const allChoices: WeatherChoice[] = ['thunder','sunny','rain','wind','hail'];
     const types: WeatherChoice[] = ownedSpells.length > 0
       ? allChoices.filter(t => ownedSpells.includes(t))
       : allChoices;
@@ -346,15 +347,14 @@ export class VillagerScene extends Phaser.Scene {
           });
         }
 
-        // ペナルティ：HP -1 ＋ 赤フラッシュ
+        // ペナルティ：赤フラッシュ（HPはAPI経由で更新）
+        // ペナルティ：赤フラッシュ＋画面揺れ
         if (isPenalty) {
-          usePlayerStore.getState().dealDamage();
           const flash = this.add.rectangle(W/2, H/2, W, H, 0xff0000, 0.55).setDepth(50);
           this.tweens.add({
             targets: flash, alpha: 0, duration: 600,
             onComplete: () => flash.destroy(),
           });
-          // 画面揺れ
           this.cameras.main.shake(400, 0.014);
         }
 
@@ -372,11 +372,15 @@ export class VillagerScene extends Phaser.Scene {
         this.tweens.add({ targets:resultText, alpha:0.4, duration:450, yoyo:true, repeat:1 });
 
         const delay = isCorrect ? 2000 : 2400;
-        this.time.delayedCall(delay, () => {
-          const completed: number[] = this.game.registry.get('completedNodes') ?? [];
-          if (!completed.includes(nodeId)) completed.push(nodeId);
-          this.game.registry.set('completedNodes', completed);
-          this.game.registry.set('playerNodeId', nodeId);
+        this.time.delayedCall(delay, async () => {
+          const token = localStorage.getItem('session_token') ?? '';
+          try {
+            const res = await apiClient.postVillage({ session_token: token, node_id: nodeId, weather: type });
+            usePlayerStore.getState().setHp(res.player_current_hp);
+          } catch (e) {
+            console.error('[VillagerScene] postVillage failed', e);
+            if (isPenalty) usePlayerStore.getState().dealDamage();
+          }
           this.cameras.main.fade(500, 0, 0, 0);
           this.time.delayedCall(500, () => this.scene.start('MapScene'));
         });
@@ -475,7 +479,7 @@ export class VillagerScene extends Phaser.Scene {
     add(resultBg); add(resultText);
 
     const ownedSpells2 = useGameStore.getState().playerSpells;
-    const allChoices2: WeatherChoice[] = ['thunder','fire','water','wind','hail'];
+    const allChoices2: WeatherChoice[] = ['thunder','sunny','rain','wind','hail'];
     const types: WeatherChoice[] = ownedSpells2.length > 0
       ? allChoices2.filter(t => ownedSpells2.includes(t))
       : allChoices2;
@@ -546,11 +550,15 @@ export class VillagerScene extends Phaser.Scene {
         resultText.setText(msg).setY(H*0.555).setVisible(true);
         this.tweens.add({ targets:resultText, alpha:0.4, duration:450, yoyo:true, repeat:1 });
 
-        this.time.delayedCall(1700, () => {
-          const completed: number[] = this.game.registry.get('completedNodes') ?? [];
-          if (!completed.includes(nodeId)) completed.push(nodeId);
-          this.game.registry.set('completedNodes', completed);
-          this.game.registry.set('playerNodeId', nodeId);
+        this.time.delayedCall(1700, async () => {
+          const token = localStorage.getItem('session_token') ?? '';
+          try {
+            const res = await apiClient.postVillage({ session_token: token, node_id: nodeId, weather: type });
+            usePlayerStore.getState().setHp(res.player_current_hp);
+          } catch (e) {
+            console.error('[VillagerScene] postVillage failed', e);
+            // 通常イベントはペナルティなし（HPは変化しない）
+          }
           this.cameras.main.fade(500, 0, 0, 0);
           this.time.delayedCall(500, () => this.scene.start('MapScene'));
         });

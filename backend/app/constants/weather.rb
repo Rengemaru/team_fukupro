@@ -1,7 +1,7 @@
 module Constants
   module Weather
-    SUNNY        = "fire"
-    RAIN         = "water"
+    SUNNY        = "sunny"
+    RAIN         = "rain"
     WIND         = "wind"
     THUNDERSTORM = "thunder"
     HAIL         = "hail"
