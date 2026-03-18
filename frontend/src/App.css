@@ -5,12 +5,32 @@
 }
 
 html,
-body,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #0d0820;
+  background-image: url('/taitle.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+html::before,
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  backdrop-filter: blur(12px) brightness(0.35);
+  z-index: 0;
+}
+
 #root {
   width: 100%;
   height: 100%;
-  background: #000;
   overflow: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 .app-wrapper {
