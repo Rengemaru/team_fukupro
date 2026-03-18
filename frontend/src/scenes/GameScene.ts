@@ -9,13 +9,13 @@ const SPRITE_SCALE     = 1.7;
 const ATK_SPRITE_SCALE = 2.0;
 const IDLE_KEYS = ['gale_idle','gale_idle1','gale_idle2','gale_idle3'] as const;
 
-type WeatherType = 'thunder' | 'fire' | 'water' | 'wind' | 'hail';
+type WeatherType = 'thunder' | 'sunny' | 'rain' | 'wind' | 'hail';
 
 const API_WEATHER_MAP: Record<string, WeatherType> = {
   thunder: 'thunder',
-  water:   'water',
+  rain:    'rain',
   wind:    'wind',
-  fire:    'fire',
+  sunny:   'sunny',
   hail:    'hail',
 };
 
@@ -28,8 +28,8 @@ const WEATHER_CONFIG: Record<WeatherType, {
   btnColor: number; btnGlow: number;
 }> = {
   thunder: { label:'雷',  emoji:'⚡', spriteKey:'gale_atk_thunder', projColor:0xffff44, btnColor:0x1a2255, btnGlow:0x8888ff },
-  fire:    { label:'晴れ', emoji:'☀️', spriteKey:'gale_atk_fire',   projColor:0xffee44, btnColor:0x2a2200, btnGlow:0xffcc00 },
-  water:   { label:'水',  emoji:'💧', spriteKey:'gale_atk_water',   projColor:0x44ccff, btnColor:0x002244, btnGlow:0x44aaff },
+  sunny:   { label:'晴れ', emoji:'☀️', spriteKey:'gale_atk_fire',   projColor:0xffee44, btnColor:0x2a2200, btnGlow:0xffcc00 },
+  rain:    { label:'雨',  emoji:'💧', spriteKey:'gale_atk_water',   projColor:0x44ccff, btnColor:0x002244, btnGlow:0x44aaff },
   wind:    { label:'風',  emoji:'🌀', spriteKey:'gale_atk_wind',    projColor:0x44ffaa, btnColor:0x003322, btnGlow:0x44ffaa },
   hail:    { label:'雹',  emoji:'🌨', spriteKey:'gale_atk_hyou',   projColor:0xaaddff, btnColor:0x001833, btnGlow:0x88ccff },
 };
@@ -191,7 +191,7 @@ export class GameScene extends Phaser.Scene {
       return this.add.image(x, y, key).setOrigin(0.5, 1).setDisplaySize(this.hailDisplayW, this.hailDisplayH).setVisible(false);
     });
 
-    const atkKeys: WeatherType[] = ['thunder', 'fire', 'water', 'wind'];
+    const atkKeys: WeatherType[] = ['thunder', 'sunny', 'rain', 'wind'];
     atkKeys.forEach(type => {
       const key = WEATHER_CONFIG[type].spriteKey;
       if (this.textures.exists(key) && this.textures.get(key).key !== '__MISSING') {
@@ -296,7 +296,7 @@ export class GameScene extends Phaser.Scene {
     const statusW = 200;
 
     const ownedSpells = useGameStore.getState().playerSpells;
-    const allTypes: WeatherType[] = ['thunder', 'fire', 'water', 'wind', 'hail'];
+    const allTypes: WeatherType[] = ['thunder', 'sunny', 'rain', 'wind', 'hail'];
     const types: WeatherType[] = ownedSpells.length > 0
       ? allTypes.filter(t => ownedSpells.includes(t))
       : allTypes;
@@ -499,8 +499,8 @@ export class GameScene extends Phaser.Scene {
     const sx = this.playerX + 60;
     const sy = this.slimeY - 20;
     if      (type === 'thunder') this.fxThunder(sx, sy, onHit);
-    else if (type === 'fire')    this.fxFire(sx, sy, onHit);
-    else if (type === 'water')   this.fxWater(sx, sy, onHit);
+    else if (type === 'sunny')   this.fxFire(sx, sy, onHit);
+    else if (type === 'rain')    this.fxWater(sx, sy, onHit);
     else if (type === 'hail')    this.fxHail(onHit);
     else                         this.fxWind(sx, sy, color, onHit);
   }
@@ -572,8 +572,8 @@ export class GameScene extends Phaser.Scene {
     type GradArgs = [number, number, number, number, number];
     const g: Record<WeatherType, GradArgs> = {
       thunder: [0x06021a, 0x06021a, 0x0a1030, 0x0a1030, 1],
-      fire:    [0x2277cc, 0x2277cc, 0x88aadd, 0x88aadd, 1],
-      water:   [0x040c1a, 0x040c1a, 0x0a1a2e, 0x0a1a2e, 1],
+      sunny:   [0x2277cc, 0x2277cc, 0x88aadd, 0x88aadd, 1],
+      rain:    [0x040c1a, 0x040c1a, 0x0a1a2e, 0x0a1a2e, 1],
       wind:    [0x182230, 0x182230, 0x2a3a55, 0x2a3a55, 1],
       hail:    [0x020408, 0x020408, 0x04080e, 0x04080e, 1],
     };
@@ -587,7 +587,7 @@ export class GameScene extends Phaser.Scene {
   private spawnWeatherFx(type: WeatherType) {
     const W = this.scale.width, H = this.scale.height * 0.68;
 
-    if (type === 'water') {
+    if (type === 'rain') {
       for (let i = 0; i < 35; i++) {
         const x = Phaser.Math.Between(0, W); const y = Phaser.Math.Between(-20, H * 0.5);
         const drop = this.add.rectangle(x, y, 1, 9, 0x88ccff, 0.7);
@@ -615,7 +615,7 @@ export class GameScene extends Phaser.Scene {
         const streak = this.add.rectangle(-len / 2, y, len, 2, 0xcceecc, 0.5);
         this.tweens.add({ targets: streak, x: W + len, alpha: 0, duration: Phaser.Math.Between(280, 560), delay: i * 55, onComplete: () => streak.destroy() });
       }
-    } else if (type === 'fire') {
+    } else if (type === 'sunny') {
       const sunX = W * 0.80, sunY = H * 0.18;
       for (let i = 0; i < 9; i++) {
         const angle = (i / 9) * Math.PI * 2;
