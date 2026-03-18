@@ -66,6 +66,8 @@ module Api
         completed_nodes: session.completed_nodes,
         finished:        session.finished,
         player_spells:   session.player_spells || []
+        player_hp:       session.player_hp,
+        player_max_hp:   session.player_max_hp
       }
     end
   end

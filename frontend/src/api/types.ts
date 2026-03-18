@@ -9,6 +9,8 @@ export interface SessionResponse {
   completed_nodes: number[];
   finished: boolean;
   player_spells: string[];
+  player_hp: number;
+  player_max_hp: number;
 }
 
 export interface UpdateSessionRequest {

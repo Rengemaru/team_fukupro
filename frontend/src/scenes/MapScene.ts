@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { useGameStore } from '../store/gameStore';
 import type { MapNode } from '../store/gameStore';
+import { usePlayerStore } from '../store/playerStore';
 
 export class MapScene extends Phaser.Scene {
   constructor() { super({ key: 'MapScene' }); }
@@ -31,6 +32,8 @@ export class MapScene extends Phaser.Scene {
     nodes: MapNode[];
     player_node_id: number;
     completed_nodes: number[];
+    player_hp: number;
+    player_max_hp: number;
   }> {
     const token = localStorage.getItem('session_token');
 
@@ -55,11 +58,13 @@ export class MapScene extends Phaser.Scene {
   }
 
   private syncStore(data: { nodes: MapNode[]; player_node_id: number; completed_nodes: number[]; player_spells?: string[] }) {
+  private syncStore(data: { nodes: MapNode[]; player_node_id: number; completed_nodes: number[]; player_hp: number }) {
     const store = useGameStore.getState();
     store.setNodes(data.nodes);
     store.setPlayerNodeId(data.player_node_id);
     store.setCompletedNodes(data.completed_nodes);
     if (data.player_spells) store.setPlayerSpells(data.player_spells);
+    usePlayerStore.getState().setHp(data.player_hp);
   }
 
   // ─── 実描画 ───────────────────────────────────────────────
@@ -245,17 +250,15 @@ export class MapScene extends Phaser.Scene {
       return;
     }
 
-    const completedNodes = [...store.completedNodes, node.id];
     await fetch(`/api/sessions/${token}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         player_node_id: node.id,
-        completed_nodes: completedNodes,
+        completed_nodes: store.completedNodes,
       }),
     });
 
-    store.setCompletedNodes(completedNodes);
     store.setPlayerNodeId(node.id);
 
     this.cameras.main.fade(500, 0, 0, 0);
