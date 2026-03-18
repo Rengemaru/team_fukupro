@@ -15,9 +15,10 @@ module Api
       result = BattleLogic.call(
         weather:          params[:weather],
         enemy:            enemy,
-        enemy_current_hp: node['current_hp'].to_i,
+        enemy_current_hp: node["current_hp"].to_i,
         player_hp:        session.player_hp,
-        player_max_hp:    session.player_max_hp
+        player_max_hp:    session.player_max_hp,
+        completed_count:  session.completed_nodes.length
       )
 
       update_session(session, node, result)
