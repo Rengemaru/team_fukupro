@@ -87,7 +87,7 @@ class BattleLogic
       enemy_attack:      { damage: enemy_dmg,   result: enemy_result, hit_probability: hit_probability },
       enemy_current_hp:  enemy_hp,
       player_current_hp: player_hp,
-      battle_result:     battle_result,
+      battle_result:     battle_result
     }
   end
 end

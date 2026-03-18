@@ -9,6 +9,6 @@ export const ENEMY_DISPLAY_DATA: Record<number, EnemyDisplayData> = {
   1: { name: "スライム", imagePath: "/assets/enemies/slime.png" },
   2: { name: "森の精霊", imagePath: null },
   3: { name: "砂の魔人", imagePath: null },
-  4: { name: "雷鳥",     imagePath: null },
-  5: { name: "まこも",   imagePath: null },
+  4: { name: "盗賊",     imagePath: null },
+  5: { name: "ゾンビ",   imagePath: null },
 };

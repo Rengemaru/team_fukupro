@@ -195,7 +195,7 @@ class MapGenerator
           node[:type]          = ::Constants::MapNode::VILLAGER
           node[:village_event] = MAP_CONSTANTS[:village_event_types].sample
         else
-          enemy = Enemy.order('RANDOM()').first
+          enemy = Enemy.order("RANDOM()").first
           node[:type]       = ::Constants::MapNode::ENEMY
           node[:enemy_id]   = enemy.id
           node[:enemy_name] = enemy.name
