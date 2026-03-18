@@ -54,7 +54,7 @@ module Api
         map_nodes:     updated_nodes,
         player_hp:     result[:player_current_hp],
         finished:      result[:battle_result] == "game_over",
-        player_spells: new_spell ? ((session.player_spells || []) + [new_spell]) : session.player_spells
+        player_spells: new_spell ? ((session.player_spells || []) + [ new_spell ]) : session.player_spells
       )
     end
   end
