@@ -333,6 +333,19 @@ export class VillagerScene extends Phaser.Scene {
             duration:Phaser.Math.Between(600,1100), delay:j*55, onComplete:()=>p.destroy() });
         }
 
+        // スコア加算（ペナルティ以外）
+        if (!isPenalty) {
+          usePlayerStore.getState().addScore(10);
+          const ptsText = this.add.text(W/2, H*0.48, '+10 pts', {
+            fontSize:'22px', fontFamily:'monospace', color:'#ffdd44',
+            stroke:'#000', strokeThickness:3,
+          }).setOrigin(0.5).setAlpha(0).setDepth(20);
+          this.tweens.add({
+            targets: ptsText, alpha: 1, y: H*0.43, duration: 500, ease:'Back.easeOut',
+            onComplete: () => this.tweens.add({ targets:ptsText, alpha:0, duration:400, delay:800, onComplete:()=>ptsText.destroy() }),
+          });
+        }
+
         // ペナルティ：HP -1 ＋ 赤フラッシュ
         if (isPenalty) {
           usePlayerStore.getState().dealDamage();
@@ -512,6 +525,17 @@ export class VillagerScene extends Phaser.Scene {
           this.tweens.add({ targets:p, y:py-Phaser.Math.Between(50,110), alpha:0,
             duration:Phaser.Math.Between(600,1100), delay:j*55, onComplete:()=>p.destroy() });
         }
+        // 通常イベントは常に+10pt
+        usePlayerStore.getState().addScore(10);
+        const ptsText2 = this.add.text(W/2, H*0.48, '+10 pts', {
+          fontSize:'22px', fontFamily:'monospace', color:'#ffdd44',
+          stroke:'#000', strokeThickness:3,
+        }).setOrigin(0.5).setAlpha(0).setDepth(20);
+        this.tweens.add({
+          targets: ptsText2, alpha: 1, y: H*0.43, duration: 500, ease:'Back.easeOut',
+          onComplete: () => this.tweens.add({ targets:ptsText2, alpha:0, duration:400, delay:800, onComplete:()=>ptsText2.destroy() }),
+        });
+
         const msg = villagerType === 'man' ? cfg.manResult : cfg.womanResult;
         resultBg.clear();
         resultBg.fillStyle(0x041210, 0.92);
@@ -593,5 +617,9 @@ export class VillagerScene extends Phaser.Scene {
       this.cameras.main.fade(500, 0, 0, 0);
       this.time.delayedCall(500, () => this.scene.start('TitleScene'));
     });
+    this.add.text(W-16, 44, `SCORE: ${usePlayerStore.getState().score}`, {
+      fontSize:'14px', fontFamily:'monospace', color:'#ffdd88',
+      stroke:'#000', strokeThickness:2,
+    }).setOrigin(1, 0).setDepth(15);
   }
 }

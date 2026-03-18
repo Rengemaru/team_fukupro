@@ -52,6 +52,8 @@ export class GameScene extends Phaser.Scene {
   private enemyFrameTimer?: Phaser.Time.TimerEvent;
 
   private newSpellFromBattle?: string;
+  private turnCount = 0;
+  private scoreText!: Phaser.GameObjects.Text;
 
   private playerHpText!: Phaser.GameObjects.Text;
   private skyGfx!: Phaser.GameObjects.Graphics;
@@ -343,6 +345,7 @@ export class GameScene extends Phaser.Scene {
   private attackWithWeather(type: WeatherType) {
     if (!this.attackEnabled || this.slimeHp <= 0) return;
     this.attackEnabled = false;
+    this.turnCount++;
 
     const cfg = WEATHER_CONFIG[type];
     this.updateSkyForWeather(type);
@@ -711,6 +714,23 @@ export class GameScene extends Phaser.Scene {
 
   private showNewSpellOrReturn() {
     const W = this.scale.width, H = this.scale.height;
+
+    // ターン数に応じてスコア加算
+    const pts = this.turnCount <= 4 ? 50 : this.turnCount === 5 ? 30 : 20;
+    usePlayerStore.getState().addScore(pts);
+    this.updateScoreDisplay();
+
+    // 獲得ポイント表示
+    const ptsText = this.add.text(W/2, H*0.25, `+${pts} pts`, {
+      fontSize: '28px', fontFamily: 'monospace',
+      color: pts === 50 ? '#ffdd44' : pts === 30 ? '#88ffcc' : '#aaaaff',
+      stroke: '#000', strokeThickness: 4,
+    }).setOrigin(0.5).setAlpha(0).setDepth(15);
+    this.tweens.add({
+      targets: ptsText, alpha: 1, y: H*0.20, duration: 500, ease: 'Back.easeOut',
+      onComplete: () => this.tweens.add({ targets: ptsText, alpha: 0, duration: 400, delay: 900, onComplete: () => ptsText.destroy() }),
+    });
+
     const spell = this.newSpellFromBattle;
 
     if (spell && spell in WEATHER_CONFIG) {
@@ -800,6 +820,11 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  private updateScoreDisplay() {
+    const score = usePlayerStore.getState().score;
+    this.scoreText?.setText(`SCORE: ${score}`);
+  }
+
   private createBackButton(W: number) {
     const back = this.add.text(W-16, 16, '[ タイトルへ ]', { fontSize:'15px', fontFamily:'monospace', color:'#4488ff' }).setOrigin(1,0).setInteractive({ useHandCursor:true });
     back.on('pointerover', () => back.setColor('#88bbff'));
@@ -808,5 +833,9 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.fade(500, 0, 0, 0);
       this.time.delayedCall(500, () => this.scene.start('TitleScene'));
     });
+    this.scoreText = this.add.text(W-16, 44, `SCORE: ${usePlayerStore.getState().score}`, {
+      fontSize: '14px', fontFamily: 'monospace', color: '#ffdd88',
+      stroke: '#000', strokeThickness: 2,
+    }).setOrigin(1, 0);
   }
 }
