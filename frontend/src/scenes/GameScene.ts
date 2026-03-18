@@ -296,11 +296,10 @@ export class GameScene extends Phaser.Scene {
     const statusW = 200;
 
     const ownedSpells = useGameStore.getState().playerSpells;
-    const allTypes: WeatherType[] = ['thunder', 'fire', 'water', 'wind', 'hail'];
+    const allTypes: WeatherType[] = ['thunder', 'sunny', 'rain', 'wind', 'hail'];
     const types: WeatherType[] = ownedSpells.length > 0
       ? allTypes.filter(t => ownedSpells.includes(t))
       : allTypes;
-    const types: WeatherType[] = ['thunder', 'sunny', 'rain', 'wind', 'hail'];
     const gap  = 8;
     const btnW = Math.floor((W - statusW - pad * 2 - gap * (types.length - 1)) / types.length);
     const btnH = hudH - pad * 2;

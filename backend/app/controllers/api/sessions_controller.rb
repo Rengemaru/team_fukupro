@@ -1,6 +1,6 @@
 module Api
   class SessionsController < ApplicationController
-    ALL_WEATHERS = %w[thunder fire water wind hail].freeze
+    ALL_WEATHERS = %w[thunder sunny rain wind hail].freeze
 
     # POST /api/sessions
     def create
@@ -12,7 +12,7 @@ module Api
         expires_at:      Time.current + 24.hours,
         map_nodes:       nodes,
         completed_nodes: [],
-        player_spells:   ALL_WEATHERS.sample(2)
+        player_spells:   ALL_WEATHERS.sample(2),
         player_hp:       5,
         player_max_hp:   5
       )
@@ -67,7 +67,7 @@ module Api
         player_node_id:  session.player_node_id,
         completed_nodes: session.completed_nodes,
         finished:        session.finished,
-        player_spells:   session.player_spells || []
+        player_spells:   session.player_spells || [],
         player_hp:       session.player_hp,
         player_max_hp:   session.player_max_hp
       }
