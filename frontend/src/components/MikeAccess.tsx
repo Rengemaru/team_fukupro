@@ -126,28 +126,28 @@ export default function MikeAccess() {
     <div className="mic-ui">
       {micStatus === 'idle' && (
         <button className="mic-btn mic-btn--idle" onClick={requestMic} title="クリックして録音開始">
-          🎙️
+          <img src="/mike.png" alt="マイク" className="mic-icon" />
         </button>
       )}
       {micStatus === 'recording' && (
-        <button className="mic-btn mic-btn--active" onClick={finishRecording} title={`録音中 / あと ${countdown} 秒`} style={{ '--vol': volume } as React.CSSProperties}>
-          🔴
+        <button className="mic-btn mic-btn--active" onClick={finishRecording} title={`録音中 / あと ${countdown} 秒`}>
+          <img src="/stop.png" alt="停止" className="mic-icon" />
           <span className="mic-countdown">{countdown}</span>
         </button>
       )}
       {micStatus === 'processing' && (
         <span className="mic-btn mic-btn--processing" title="天候を分析中...">
-          ⏳
+          <img src="/clock.png" alt="分析中" className="mic-icon" />
         </span>
       )}
       {micStatus === 'denied' && (
         <button className="mic-btn mic-btn--error" onClick={() => setMicStatus('idle')} title="マイクが拒否されました。クリックして再試行">
-          🚫
+          <img src="/mike.png" alt="再試行" className="mic-icon mic-icon--denied" />
         </button>
       )}
       {micStatus === 'error' && (
         <button className="mic-btn mic-btn--error" onClick={() => setMicStatus('idle')} title="エラー。クリックして再試行">
-          ⚠️
+          <img src="/mike.png" alt="再試行" className="mic-icon mic-icon--denied" />
         </button>
       )}
     </div>
