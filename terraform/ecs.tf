@@ -87,4 +87,9 @@ resource "aws_ecs_service" "api" {
 
   # リスナーより先にサービスを作るとエラーになるため依存関係を明示
   depends_on = [aws_lb_listener.http]
+
+  # task_definitionはGitHub Actionsがデプロイ時に更新するためTerraformの管理外とする
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
 }
