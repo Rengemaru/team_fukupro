@@ -3,7 +3,7 @@ FROM ruby:3.3-slim
 WORKDIR /app
 
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
-  build-essential libpq-dev && \
+  build-essential libpq-dev libvips-dev pkg-config && \
   rm -rf /var/lib/apt/lists/*
 
 COPY backend/Gemfile backend/Gemfile.lock ./
