@@ -29,11 +29,12 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }} .
+          docker build -t ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }} -t ${{ secrets.ECR_REPOSITORY }}:latest .
 
       - name: Push Docker image to ECR
         run: |
           docker push ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+          docker push ${{ secrets.ECR_REPOSITORY }}:latest
 
       - name: Register new task definition
         id: register-task-def
