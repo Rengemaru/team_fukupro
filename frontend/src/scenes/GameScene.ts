@@ -25,14 +25,15 @@ const HAIL_KEYS = ['gale_atk_hyou', 'gale_atk_hyou1', 'gale_atk_hyou2'] as const
 const WEATHER_CONFIG: Record<WeatherType, {
   label: string; emoji: string;
   spriteKey: string;
+  isPose?: boolean;   // true = 新ポーズ画像（portrait, displaySize使用）
   projColor: number;
   btnColor: number; btnGlow: number;
 }> = {
-  thunder: { label:'雷',  emoji:'⚡', spriteKey:'gale_atk_thunder', projColor:0xffff44, btnColor:0x1a2255, btnGlow:0x8888ff },
-  sunny:   { label:'晴れ', emoji:'☀️', spriteKey:'gale_atk_fire',   projColor:0xffee44, btnColor:0x2a2200, btnGlow:0xffcc00 },
-  rain:    { label:'雨',  emoji:'💧', spriteKey:'gale_atk_water',   projColor:0x44ccff, btnColor:0x002244, btnGlow:0x44aaff },
-  wind:    { label:'風',  emoji:'🌀', spriteKey:'gale_atk_wind',    projColor:0x44ffaa, btnColor:0x003322, btnGlow:0x44ffaa },
-  hail:    { label:'雹',  emoji:'🌨', spriteKey:'gale_atk_hyou',   projColor:0xaaddff, btnColor:0x001833, btnGlow:0x88ccff },
+  thunder: { label:'雷',  emoji:'⚡', spriteKey:'thunderpose', isPose:true,  projColor:0xffff44, btnColor:0x1a2255, btnGlow:0x8888ff },
+  sunny:   { label:'晴れ', emoji:'☀️', spriteKey:'sunnypose',   isPose:true,  projColor:0xffee44, btnColor:0x2a2200, btnGlow:0xffcc00 },
+  rain:    { label:'雨',  emoji:'💧', spriteKey:'rainpose',     isPose:true,  projColor:0x44ccff, btnColor:0x002244, btnGlow:0x44aaff },
+  wind:    { label:'風',  emoji:'🌀', spriteKey:'gale_atk_wind',              projColor:0x44ffaa, btnColor:0x003322, btnGlow:0x44ffaa },
+  hail:    { label:'雹',  emoji:'🌨', spriteKey:'gale_atk_hyou',              projColor:0xaaddff, btnColor:0x001833, btnGlow:0x88ccff },
 };
 
 // ─── 敵の種類 ─────────────────────────────────────────────
@@ -81,7 +82,9 @@ export class GameScene extends Phaser.Scene {
   preload() {
     IDLE_KEYS.forEach(key => { if (!this.textures.exists(key)) this.load.image(key, `${key}.jpg`); });
     ['gale_walk','gale_walk1','gale_walk2','gale_walk3'].forEach(key => { if (!this.textures.exists(key)) this.load.image(key, `${key}.jpg`); });
-    ['gale_cast','gale_atk_thunder','gale_atk_fire','gale_atk_water','gale_atk_wind','gale_atk_ice'].forEach(key => { if (!this.textures.exists(key)) this.load.image(key, `${key}.jpg`); });
+    ['gale_cast','gale_atk_wind','gale_atk_ice'].forEach(key => { if (!this.textures.exists(key)) this.load.image(key, `${key}.jpg`); });
+    // 新ポーズ画像（透過PNG）
+    ['thunderpose','sunnypose','rainpose'].forEach(key => { if (!this.textures.exists(key)) this.load.image(key, `${key}.png`); });
     HAIL_KEYS.forEach(key => { if (!this.textures.exists(key)) this.load.image(key, `${key}.jpg`); });
 
     // 敵画像を読み込む（透過PNG）
@@ -209,9 +212,23 @@ export class GameScene extends Phaser.Scene {
 
     const atkKeys: WeatherType[] = ['thunder', 'sunny', 'rain', 'wind'];
     atkKeys.forEach(type => {
-      const key = WEATHER_CONFIG[type].spriteKey;
+      const cfg = WEATHER_CONFIG[type];
+      const key = cfg.spriteKey;
       if (this.textures.exists(key) && this.textures.get(key).key !== '__MISSING') {
-        this.atkImages[type] = this.add.image(x, y, key).setOrigin(0.05, 1).setScale(ATK_SPRITE_SCALE).setVisible(false);
+        if (cfg.isPose) {
+          // ポーズ画像: idle より 1.6倍大きく表示（攻撃感を出す）
+          const pw = Math.round(this.hailDisplayW * 1.6);
+          const ph = Math.round(this.hailDisplayH * 1.6);
+          this.atkImages[type] = this.add.image(x, y, key)
+            .setOrigin(0.5, 1)
+            .setDisplaySize(pw, ph)
+            .setVisible(false);
+        } else {
+          this.atkImages[type] = this.add.image(x, y, key)
+            .setOrigin(0.05, 1)
+            .setScale(ATK_SPRITE_SCALE)
+            .setVisible(false);
+        }
       }
     });
 
@@ -551,27 +568,49 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private fxThunder(sx: number, sy: number, onHit: () => void) {
-    const g = this.add.graphics();
+  private fxThunder(_sx: number, sy: number, onHit: () => void) {
+    const H = this.scale.height;
+    // 空から敵に向かって落雷
+    const g = this.add.graphics().setDepth(10);
     let f = 0;
-    const flash = () => {
+    const tx = this.slimeX;
+    const drawBolt = () => {
       g.clear();
       if (f % 2 === 0) {
-        g.lineStyle(4, 0xffff44, 1);
-        const mx = (sx + this.slimeX) / 2 + Phaser.Math.Between(-30, 30);
-        g.beginPath(); g.moveTo(sx, sy); g.lineTo(mx, sy-45+Phaser.Math.Between(-20,20)); g.lineTo(this.slimeX, sy+Phaser.Math.Between(-10,10)); g.strokePath();
-        g.lineStyle(2, 0xffffff, 0.6);
-        g.beginPath(); g.moveTo(sx, sy); g.lineTo(mx+8, sy-40+Phaser.Math.Between(-10,10)); g.lineTo(this.slimeX+5, sy+Phaser.Math.Between(-8,8)); g.strokePath();
+        // メインボルト（太い）
+        g.lineStyle(6, 0xffffff, 1);
+        g.beginPath();
+        g.moveTo(tx + Phaser.Math.Between(-8, 8), 0);
+        g.lineTo(tx - 20 + Phaser.Math.Between(-15, 15), H * 0.22);
+        g.lineTo(tx + 18 + Phaser.Math.Between(-12, 12), H * 0.42);
+        g.lineTo(tx - 10 + Phaser.Math.Between(-8, 8), H * 0.58);
+        g.lineTo(tx, sy);
+        g.strokePath();
+        // 輝きボルト（細い）
+        g.lineStyle(2, 0xffff88, 0.8);
+        g.beginPath();
+        g.moveTo(tx + 5 + Phaser.Math.Between(-5, 5), 0);
+        g.lineTo(tx - 15 + Phaser.Math.Between(-10, 10), H * 0.25);
+        g.lineTo(tx + 22 + Phaser.Math.Between(-10, 10), H * 0.44);
+        g.lineTo(tx - 5 + Phaser.Math.Between(-6, 6), H * 0.60);
+        g.lineTo(tx + 4, sy);
+        g.strokePath();
       }
       f++;
-      if (f < 6) this.time.delayedCall(60, flash);
-      else { g.destroy(); onHit(); }
+      if (f < 5) this.time.delayedCall(55, drawBolt);
+      else {
+        g.destroy();
+        // 着弾エフェクト
+        const blast = this.add.circle(tx, sy, 18, 0xffffff, 1).setDepth(10);
+        this.tweens.add({ targets: blast, scaleX: 3.5, scaleY: 3.5, alpha: 0, duration: 280, onComplete: () => blast.destroy() });
+        for (let i = 0; i < 10; i++) {
+          const sp = this.add.circle(tx + Phaser.Math.Between(-30, 30), sy + Phaser.Math.Between(-30, 30), Phaser.Math.Between(2, 6), 0xffff44).setDepth(10);
+          this.tweens.add({ targets: sp, alpha: 0, scaleX: 0, scaleY: 0, duration: 350, delay: i * 30, onComplete: () => sp.destroy() });
+        }
+        onHit();
+      }
     };
-    flash();
-    for (let i = 0; i < 8; i++) {
-      const sp = this.add.circle(this.slimeX+Phaser.Math.Between(-25,25), sy+Phaser.Math.Between(-25,25), Phaser.Math.Between(2,5), 0xffffff);
-      this.tweens.add({ targets:sp, alpha:0, scaleX:0, scaleY:0, duration:300, delay:i*40, onComplete:()=>sp.destroy() });
-    }
+    drawBolt();
   }
 
   private fxFire(sx: number, sy: number, onHit: () => void) {
@@ -609,47 +648,95 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnWeatherFx(type: WeatherType) {
-    const W = this.scale.width, H = this.scale.height * 0.68;
+    const W = this.scale.width, H = this.scale.height;
 
     if (type === 'rain') {
-      for (let i = 0; i < 35; i++) {
-        const x = Phaser.Math.Between(0, W); const y = Phaser.Math.Between(-20, H * 0.5);
-        const drop = this.add.rectangle(x, y, 1, 9, 0x88ccff, 0.7);
-        this.tweens.add({ targets: drop, y: y + H, alpha: 0, duration: Phaser.Math.Between(500, 900), delay: i * 25, onComplete: () => drop.destroy() });
+      // 暗い青オーバーレイ
+      const overlay = this.add.rectangle(W/2, H/2, W, H, 0x001122, 0).setDepth(5);
+      this.tweens.add({ targets: overlay, alpha: 0.35, duration: 120, yoyo: true, repeat: 1, onComplete: () => overlay.destroy() });
+      // 密集した雨
+      for (let i = 0; i < 80; i++) {
+        const x = Phaser.Math.Between(0, W);
+        const y = Phaser.Math.Between(-40, H * 0.4);
+        const drop = this.add.rectangle(x, y, 1, Phaser.Math.Between(10, 18), 0x66aaff, 0.8).setDepth(4);
+        drop.setAngle(10);
+        this.tweens.add({ targets: drop, y: y + H, x: x + 60, alpha: 0, duration: Phaser.Math.Between(300, 600), delay: i * 12, onComplete: () => drop.destroy() });
       }
+
     } else if (type === 'hail') {
-      for (let i = 0; i < 28; i++) {
-        const x = Phaser.Math.Between(0, W); const y = Phaser.Math.Between(-20, H * 0.3);
-        const shard = this.add.rectangle(x, y, 3, 9, 0xddeeff, 0.85);
-        shard.setAngle(Phaser.Math.Between(-20, 20));
-        this.tweens.add({ targets: shard, y: y + H, x: x + 30, alpha: 0, duration: Phaser.Math.Between(380, 650), delay: i * 35, onComplete: () => shard.destroy() });
+      // 氷青フラッシュ
+      const iceFlash = this.add.rectangle(W/2, H/2, W, H, 0x88ccff, 0).setDepth(5);
+      this.tweens.add({ targets: iceFlash, alpha: 0.45, duration: 80, yoyo: true, repeat: 2, onComplete: () => iceFlash.destroy() });
+      // 大量の氷の結晶
+      for (let i = 0; i < 50; i++) {
+        const x = Phaser.Math.Between(0, W);
+        const y = Phaser.Math.Between(-30, H * 0.2);
+        const shard = this.add.rectangle(x, y, Phaser.Math.Between(3, 6), Phaser.Math.Between(12, 22), 0xcceeff, 0.9).setDepth(4);
+        shard.setAngle(Phaser.Math.Between(-30, 30));
+        this.tweens.add({ targets: shard, y: y + H, x: x + Phaser.Math.Between(20, 50), alpha: 0, duration: Phaser.Math.Between(280, 500), delay: i * 18, onComplete: () => shard.destroy() });
       }
+
     } else if (type === 'thunder') {
-      const flash = this.add.rectangle(W / 2, H * 0.4, W, H * 0.8, 0x8888ff, 0);
-      this.tweens.add({ targets: flash, alpha: 0.28, duration: 70, yoyo: true, repeat: 2, onComplete: () => flash.destroy() });
-      const g = this.add.graphics();
-      g.lineStyle(3, 0xffffaa, 0.9);
-      const lx = Phaser.Math.Between(W * 0.25, W * 0.75);
-      g.beginPath(); g.moveTo(lx, 0); g.lineTo(lx - 18, H * 0.3); g.lineTo(lx + 10, H * 0.3); g.lineTo(lx - 12, H * 0.62); g.strokePath();
-      this.tweens.add({ targets: g, alpha: 0, duration: 400, delay: 120, onComplete: () => g.destroy() });
+      // ① 画面が暗転（黒）
+      const blackout = this.add.rectangle(W/2, H/2, W, H, 0x000000, 0).setDepth(8);
+      this.tweens.add({ targets: blackout, alpha: 0.88, duration: 80,
+        onComplete: () => {
+          // ② 空に雷3本
+          for (let b = 0; b < 3; b++) {
+            const g = this.add.graphics().setDepth(9);
+            const lx = Phaser.Math.Between(W * 0.1, W * 0.9);
+            g.lineStyle(b === 1 ? 5 : 2, b === 1 ? 0xffffff : 0xffff88, 1);
+            g.beginPath();
+            g.moveTo(lx, 0);
+            g.lineTo(lx - 25 + Phaser.Math.Between(-20, 20), H * 0.25);
+            g.lineTo(lx + 15 + Phaser.Math.Between(-15, 15), H * 0.45);
+            g.lineTo(lx - 10 + Phaser.Math.Between(-10, 10), H * 0.62);
+            g.strokePath();
+            this.tweens.add({ targets: g, alpha: 0, duration: 350, delay: b * 40, onComplete: () => g.destroy() });
+          }
+          // ③ 暗転を解除
+          this.tweens.add({ targets: blackout, alpha: 0, duration: 250, delay: 120, onComplete: () => blackout.destroy() });
+          // ④ カメラシェイク
+          this.cameras.main.shake(300, 0.018);
+        },
+      });
+      // 紫フラッシュ
+      const pFlash = this.add.rectangle(W/2, H/2, W, H, 0x4422aa, 0).setDepth(7);
+      this.tweens.add({ targets: pFlash, alpha: 0.3, duration: 60, yoyo: true, repeat: 3, delay: 80, onComplete: () => pFlash.destroy() });
+
     } else if (type === 'wind') {
-      for (let i = 0; i < 14; i++) {
-        const y = Phaser.Math.Between(10, H - 10);
-        const len = 60 + Phaser.Math.Between(0, 70);
-        const streak = this.add.rectangle(-len / 2, y, len, 2, 0xcceecc, 0.5);
-        this.tweens.add({ targets: streak, x: W + len, alpha: 0, duration: Phaser.Math.Between(280, 560), delay: i * 55, onComplete: () => streak.destroy() });
+      // 緑がかった風スパイラル
+      for (let i = 0; i < 30; i++) {
+        const y = Phaser.Math.Between(10, H * 0.65);
+        const len = 80 + Phaser.Math.Between(0, 120);
+        const streak = this.add.rectangle(-len/2, y, len, Phaser.Math.Between(1, 3), 0x88ffcc, 0.6).setDepth(4);
+        this.tweens.add({ targets: streak, x: W + len, y: y + Phaser.Math.Between(-20, 20), alpha: 0, duration: Phaser.Math.Between(180, 400), delay: i * 30, onComplete: () => streak.destroy() });
       }
+      // 竜巻の渦
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const r = 40 + i * 8;
+        const cx = W * 0.5, cy = H * 0.35;
+        const arc = this.add.circle(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r * 0.4, 4 + i * 0.5, 0x44ffaa, 0.7).setDepth(4);
+        this.tweens.add({ targets: arc, x: cx, y: cy, scaleX: 0, scaleY: 0, alpha: 0, duration: 400, delay: i * 30, onComplete: () => arc.destroy() });
+      }
+
     } else if (type === 'sunny') {
-      const sunX = W * 0.80, sunY = H * 0.18;
-      for (let i = 0; i < 9; i++) {
-        const angle = (i / 9) * Math.PI * 2;
-        const len = 55 + Phaser.Math.Between(0, 35);
-        const ray = this.add.rectangle(sunX + Math.cos(angle) * 20, sunY + Math.sin(angle) * 20, len, 3, 0xffee88, 0.65);
+      // 白フラッシュ（太陽が爆発する感じ）
+      const whiteFlash = this.add.rectangle(W/2, H/2, W, H, 0xffffff, 0).setDepth(6);
+      this.tweens.add({ targets: whiteFlash, alpha: 0.70, duration: 90, yoyo: true, onComplete: () => whiteFlash.destroy() });
+      // 巨大な太陽
+      const sunX = W * 0.75, sunY = H * 0.15;
+      const sun = this.add.circle(sunX, sunY, 35, 0xffee44, 0.95).setDepth(5);
+      this.tweens.add({ targets: sun, scaleX: 4.5, scaleY: 4.5, alpha: 0, duration: 900, ease: 'Quad.easeOut', onComplete: () => sun.destroy() });
+      // 光線を16本
+      for (let i = 0; i < 16; i++) {
+        const angle = (i / 16) * Math.PI * 2;
+        const len = 80 + Phaser.Math.Between(0, 80);
+        const ray = this.add.rectangle(sunX + Math.cos(angle) * 30, sunY + Math.sin(angle) * 30, len, 4, 0xffee88, 0.8).setDepth(5);
         ray.setAngle(Phaser.Math.RadToDeg(angle));
-        this.tweens.add({ targets: ray, scaleX: 1.6, alpha: 0, duration: 650, delay: i * 45, onComplete: () => ray.destroy() });
+        this.tweens.add({ targets: ray, scaleX: 2.8, alpha: 0, duration: 750, delay: i * 25, ease: 'Quad.easeOut', onComplete: () => ray.destroy() });
       }
-      const sun = this.add.circle(sunX, sunY, 26, 0xffee44, 0.65);
-      this.tweens.add({ targets: sun, scaleX: 2.0, scaleY: 2.0, alpha: 0, duration: 800, onComplete: () => sun.destroy() });
     }
   }
 
