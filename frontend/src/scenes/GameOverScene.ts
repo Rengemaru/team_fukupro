@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { audioManager } from '../utils/audioManager';
 import { usePlayerStore } from '../store/playerStore';
 import { useGameStore } from '../store/gameStore';
 
@@ -72,6 +73,7 @@ export class GameOverScene extends Phaser.Scene {
     retryBtn.on('pointerover', () => retryBtn.setStyle({ color: '#ffffff', backgroundColor: '#003a1acc' }));
     retryBtn.on('pointerout',  () => retryBtn.setStyle({ color: '#97d4a8', backgroundColor: '#001a0acc' }));
     retryBtn.on('pointerdown', async () => {
+      audioManager.sfxButton();
       usePlayerStore.getState().reset();
 
       const res = await fetch('/api/sessions', {

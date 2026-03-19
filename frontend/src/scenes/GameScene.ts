@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { audioManager } from '../utils/audioManager';
 import { usePlayerStore } from '../store/playerStore';
 import { useSceneStore } from '../store/sceneStore';
 import { type EnemyType, ENEMY_TYPES, ENEMY_CONFIG, ENEMY_ID_TO_TYPE } from '../constants/enemies';
@@ -77,6 +78,7 @@ export class GameScene extends Phaser.Scene {
     this.game.events.off('weatherChanged', undefined, this);
     useSceneStore.getState().setCurrentScene('');
     useSceneStore.getState().setMikeVisible(false);
+    audioManager.stopBGM();
   }
 
   preload() {
@@ -139,6 +141,7 @@ export class GameScene extends Phaser.Scene {
     useSceneStore.getState().setCurrentScene('GameScene');
     useSceneStore.getState().setMikeVisible(true);
     this.cameras.main.fadeIn(600);
+    audioManager.playBGM('battle');
 
     this.game.events.on('weatherChanged', (apiWeather: string) => {
       const type = API_WEATHER_MAP[apiWeather];
@@ -386,6 +389,7 @@ export class GameScene extends Phaser.Scene {
     this.turnCount++;
 
     const cfg = WEATHER_CONFIG[type];
+    audioManager.sfxWeather(type);
     this.updateSkyForWeather(type);
     this.spawnWeatherFx(type);
     this.showSprite('cast');
@@ -486,6 +490,7 @@ export class GameScene extends Phaser.Scene {
     const hpAfter = playerCurrentHp ?? usePlayerStore.getState().hp;
     if (isGameOver || hpAfter <= 0) {
       this.attackEnabled = false;
+      audioManager.sfxGameOver();
       useSceneStore.getState().setMikeVisible(false);
       this.time.delayedCall(600, () => {
         localStorage.removeItem('session_token');
@@ -794,6 +799,7 @@ export class GameScene extends Phaser.Scene {
       else { this.slimeSprite.clearTint(); }
     };
     doFlash();
+    audioManager.sfxHit();
     this.tweens.add({ targets:this.slimeSprite, x:this.slimeX+24, duration:65, yoyo:true, repeat:1 });
     const dt = this.add.text(this.slimeX+Phaser.Math.Between(-20,20), this.slimeY-90, `-${dmg}`, { fontSize:'30px', fontFamily:'monospace', color:'#ffcc00', stroke:'#000', strokeThickness:3 }).setOrigin(0.5);
     this.tweens.add({ targets:dt, y:dt.y-55, alpha:0, duration:900, onComplete:()=>dt.destroy() });
@@ -805,6 +811,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onSlimeDefeated() {
+    audioManager.sfxVictory();
     useSceneStore.getState().setMikeVisible(false);
     const enemyName = ENEMY_CONFIG[this.currentEnemyType].name;
     this.enemyFrameTimer?.remove();
@@ -831,6 +838,7 @@ export class GameScene extends Phaser.Scene {
     const pts = this.turnCount <= 4 ? 50 : this.turnCount === 5 ? 30 : 20;
     usePlayerStore.getState().addScore(pts);
     this.updateScoreDisplay();
+    audioManager.sfxScore();
 
     // 獲得ポイント表示
     const ptsText = this.add.text(W/2, H*0.25, `+${pts} pts`, {
@@ -848,6 +856,7 @@ export class GameScene extends Phaser.Scene {
     if (spell && spell in WEATHER_CONFIG) {
       const cfg = WEATHER_CONFIG[spell as WeatherType];
       useGameStore.getState().addPlayerSpell(spell);
+      audioManager.sfxNewSpell();
 
       // 背景パネル
       const panel = this.add.graphics();

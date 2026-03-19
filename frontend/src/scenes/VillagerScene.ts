@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { audioManager } from '../utils/audioManager';
 import { usePlayerStore } from '../store/playerStore';
 import { useGameStore } from '../store/gameStore';
 import { apiClient } from '../api/apiClient';
@@ -190,6 +191,7 @@ export class VillagerScene extends Phaser.Scene {
     useSceneStore.getState().setCurrentScene('');
     useSceneStore.getState().setMikeVisible(false);
     this.game.events.off('weatherChanged', undefined, this);
+    audioManager.stopBGM();
   }
 
   private highlightWeatherBtn(type: WeatherChoice) {
@@ -231,6 +233,7 @@ export class VillagerScene extends Phaser.Scene {
     const uiContainer = this.add.container(0, 0).setVisible(false).setDepth(10);
     this.buildSpecialEventUI(W, H, nodeId, uiContainer, cfg);
 
+    audioManager.playBGM('village');
     this.cameras.main.fadeIn(500);
     this.time.delayedCall(300, () => {
       this.animateHeroEntry(W, specialGroundY, () => uiContainer.setVisible(true));
@@ -355,6 +358,7 @@ export class VillagerScene extends Phaser.Scene {
 
         // スコア加算（ペナルティ以外）
         if (!isPenalty) {
+          audioManager.sfxHelp();
           usePlayerStore.getState().addScore(10);
           const ptsText = this.add.text(W/2, H*0.48, '+10 pts', {
             fontSize:'22px', fontFamily:'monospace', color:'#ffdd44',
@@ -366,9 +370,9 @@ export class VillagerScene extends Phaser.Scene {
           });
         }
 
-        // ペナルティ：赤フラッシュ（HPはAPI経由で更新）
         // ペナルティ：赤フラッシュ＋画面揺れ
         if (isPenalty) {
+          audioManager.sfxPenalty();
           const flash = this.add.rectangle(W/2, H/2, W, H, 0xff0000, 0.55).setDepth(50);
           this.tweens.add({
             targets: flash, alpha: 0, duration: 600,
@@ -445,6 +449,7 @@ export class VillagerScene extends Phaser.Scene {
     const uiContainer = this.add.container(0, 0).setVisible(false).setDepth(10);
     this.buildNormalEventUI(W, H, nodeId, villagerType, uiContainer);
 
+    audioManager.playBGM('village');
     this.cameras.main.fadeIn(500);
     this.time.delayedCall(300, () => {
       this.animateHeroEntry(W, groundY, () => uiContainer.setVisible(true));
@@ -550,6 +555,7 @@ export class VillagerScene extends Phaser.Scene {
             duration:Phaser.Math.Between(600,1100), delay:j*55, onComplete:()=>p.destroy() });
         }
         // 通常イベントは常に+10pt
+        audioManager.sfxHelp();
         usePlayerStore.getState().addScore(10);
         const ptsText2 = this.add.text(W/2, H*0.48, '+10 pts', {
           fontSize:'22px', fontFamily:'monospace', color:'#ffdd44',

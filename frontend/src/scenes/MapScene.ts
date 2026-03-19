@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { audioManager } from '../utils/audioManager';
 import { useGameStore } from '../store/gameStore';
 import type { MapNode } from '../store/gameStore';
 import { usePlayerStore } from '../store/playerStore';
@@ -82,6 +83,7 @@ export class MapScene extends Phaser.Scene {
     this.addBackButton(W);
 
     this.cameras.main.fadeIn(500);
+    audioManager.playBGM('map');
   }
 
   // ─── 背景 ─────────────────────────────────────────────────────
@@ -237,6 +239,7 @@ export class MapScene extends Phaser.Scene {
         }),
       });
       store.setPlayerNodeId(node.id);
+      audioManager.stopBGM();
       this.cameras.main.fade(500, 0, 0, 0);
       this.time.delayedCall(500, () => {
         this.scene.start('GameScene', {
@@ -335,6 +338,7 @@ export class MapScene extends Phaser.Scene {
     btn.on('pointerout',  () => btn.setColor('#4488ff'));
     btn.on('pointerdown', () => {
       localStorage.removeItem('session_token');
+      audioManager.stopBGM();
       this.cameras.main.fade(500, 0, 0, 0);
       this.time.delayedCall(500, () => this.scene.start('TitleScene'));
     });

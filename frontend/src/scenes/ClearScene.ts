@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { audioManager } from '../utils/audioManager';
 import { usePlayerStore } from '../store/playerStore';
 
 export class ClearScene extends Phaser.Scene {
@@ -10,6 +11,7 @@ export class ClearScene extends Phaser.Scene {
 
   create() {
     const W = this.scale.width, H = this.scale.height;
+    audioManager.sfxVictory();
 
     // ① 黒背景
     this.add.rectangle(W / 2, H / 2, W, H, 0x000000);

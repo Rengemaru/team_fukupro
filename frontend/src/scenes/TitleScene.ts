@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { audioManager } from '../utils/audioManager';
 import { usePlayerStore } from '../store/playerStore';
 
 const WALK_SCALE = 1.2;  // ← 表示倍率
@@ -114,6 +115,7 @@ export class TitleScene extends Phaser.Scene {
     this.input.keyboard?.once('keydown-SPACE', () => this.startGame());
     this.input.keyboard?.once('keydown-ENTER', () => this.startGame());
     this.cameras.main.fadeIn(600);
+    audioManager.playBGM('title');
   }
 
 
@@ -306,6 +308,7 @@ export class TitleScene extends Phaser.Scene {
     localStorage.removeItem('session_token');
     usePlayerStore.getState().reset();
     this.input.keyboard?.removeAllListeners();
+    audioManager.stopBGM();
     this.cameras.main.fade(700, 0, 0, 0);
     this.time.delayedCall(700, () => this.scene.start('MapScene'));
   }
