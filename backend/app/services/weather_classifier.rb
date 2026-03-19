@@ -13,21 +13,21 @@ class WeatherClassifier
   # 平均RMSをdBスケールで分類
   # 天候種別: sunny / rain / wind / thunderstorm / hail
   def classify
-    return Constants::Weather::SUNNY if @frames.empty?
+    return Weather::SUNNY if @frames.empty?
 
     avg_rms = average_rms
 
     case
     when avg_rms >= RMS_THUNDER
-      Constants::Weather::HAIL          # 41dB以上 → 雹
+      Weather::HAIL          # 41dB以上 → 雹
     when avg_rms >= RMS_RAIN
-      Constants::Weather::THUNDERSTORM  # 31〜40dB → 雷
+      Weather::THUNDERSTORM  # 31〜40dB → 雷
     when avg_rms >= RMS_SUNNY
-      Constants::Weather::RAIN          # 21〜30dB → 雨
+      Weather::RAIN          # 21〜30dB → 雨
     when avg_rms >= RMS_WIND
-      Constants::Weather::SUNNY         # 11〜20dB → 晴れ
+      Weather::SUNNY         # 11〜20dB → 晴れ
     else
-      Constants::Weather::WIND          # 0〜10dB → 風
+      Weather::WIND          # 0〜10dB → 風
     end
   end
 

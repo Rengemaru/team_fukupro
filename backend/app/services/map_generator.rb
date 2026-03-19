@@ -188,21 +188,21 @@ class MapGenerator
     nodes.each do |node|
       case node[:id]
       when 0
-        node[:type] = ::Constants::MapNode::START
+        node[:type] = MapNode::START
       when goal_id
-        node[:type] = ::Constants::MapNode::GOAL
+        node[:type] = MapNode::GOAL
       else
         if rand < MAP_CONSTANTS[:villager_probability]
-          node[:type]          = ::Constants::MapNode::VILLAGER
+          node[:type]          = MapNode::VILLAGER
           node[:village_event] = MAP_CONSTANTS[:village_event_types].sample
         else
-          node[:type] = ::Constants::MapNode::ENEMY
+          node[:type] = MapNode::ENEMY
         end
       end
     end
 
     # 敵ノードにすべての敵をシャッフルして割り当て（全種類が確実に登場）
-    enemy_nodes = nodes.select { |n| n[:type] == ::Constants::MapNode::ENEMY }
+    enemy_nodes = nodes.select { |n| n[:type] == MapNode::ENEMY }
     enemies     = Enemy.all.to_a.shuffle
 
     return if enemies.empty?
