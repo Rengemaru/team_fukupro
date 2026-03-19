@@ -61,7 +61,7 @@ jobs:
             --cluster weather-roguelite-cluster \
             --task-definition ${{ steps.register-task-def.outputs.task_def_arn }} \
             --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.SUBNET_ID }}],securityGroups=[${{ secrets.SECURITY_GROUP_ID }}]}" \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.SUBNET_ID }}],securityGroups=[${{ secrets.SECURITY_GROUP_ID }}],assignPublicIp=ENABLED}" \
             --overrides '{"containerOverrides":[{"name":"api","command":["bundle","exec","rails","db:migrate"]}]}' \
             --query 'tasks[0].taskArn' \
             --output text)
